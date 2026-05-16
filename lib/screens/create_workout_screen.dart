@@ -6,6 +6,7 @@ import '../models/equipment.dart';
 import '../models/warmup_cooldown.dart';
 import '../data/exercise_repository.dart';
 import '../data/equipment_repository.dart';
+import '../data/workout_storage.dart';
 import '../data/warmup_cooldown_repository.dart';
 
 // ── Shared palette ────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
 
   // ── SAVE ────────────────────────────────────────────────────────────────────
 
-  void _save() {
+  Future<void> _save() async {
     if (_entries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add at least one exercise.')),
@@ -74,7 +75,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       cooldowns: _cooldowns,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
     );
-    // In a real app you'd persist this. For now show a confirmation.
+    await WorkoutStorage.instance.saveWorkout(workout);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
