@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'equipment_library_screen.dart';
 import 'exercise_library_screen.dart';
 import 'warmup_cooldown_library_screen.dart';
+import 'workout_type_selection_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -87,6 +88,30 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
               ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const WorkoutTypeSelectionScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Create Workout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2A9D8F),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(56),
+                    textStyle: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
