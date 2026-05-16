@@ -1192,38 +1192,48 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             // ── Preset chips ────────────────────────────────────────────────
             if (_presets.isNotEmpty)
               SizedBox(
-                height: 34,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _presets.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final s = _presets[i];
-                    final active = s == _currentSeconds;
-                    return GestureDetector(
-                      onTap: () => _applyPreset(context, s),
-                      onLongPress: () => _removePreset(s),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: active ? _accent : _surface2,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
+                height: 36,
+                child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Colors.transparent, Colors.white, Colors.white, Colors.transparent],
+                    stops: [0.0, 0.04, 0.96, 1.0],
+                  ).createShader(rect),
+                  blendMode: BlendMode.dstIn,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    itemCount: _presets.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, i) {
+                      final s = _presets[i];
+                      final active = s == _currentSeconds;
+                      return GestureDetector(
+                        onTap: () => _applyPreset(context, s),
+                        onLongPress: () => _removePreset(s),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
                             color: active ? _accent : _surface2,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: active ? _accent : _surface2,
+                            ),
+                          ),
+                          child: Text(
+                            _fmtPreset(s),
+                            style: TextStyle(
+                              color: active ? Colors.white : _subtle,
+                              fontSize: 13,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          _fmtPreset(s),
-                          style: TextStyle(
-                            color: active ? Colors.white : _subtle,
-                            fontSize: 13,
-                            fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             const SizedBox(height: 14),
