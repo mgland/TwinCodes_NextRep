@@ -8,6 +8,7 @@ import '../data/exercise_repository.dart';
 import '../data/equipment_repository.dart';
 import '../data/workout_storage.dart';
 import '../data/warmup_cooldown_repository.dart';
+import 'existing_workouts_screen.dart';
 
 // ── Shared palette ────────────────────────────────────────────────────────────
 
@@ -32,7 +33,13 @@ String _fmtSeconds(int s) {
 
 class CreateWorkoutScreen extends StatefulWidget {
   final WorkoutCategory category;
-  const CreateWorkoutScreen({super.key, required this.category});
+  final Workout? initialWorkout;
+
+  const CreateWorkoutScreen({
+    super.key,
+    required this.category,
+    this.initialWorkout,
+  });
 
   @override
   State<CreateWorkoutScreen> createState() => _CreateWorkoutScreenState();
@@ -52,10 +59,107 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
   WorkoutCategory get cat => widget.category;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.initialWorkout != null) {
+      _applyWorkout(widget.initialWorkout!);
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  void _applyWorkout(Workout workout) {
+    _nameController.text = workout.name;
+    _noteController.text = workout.note ?? '';
+
+    _entries
+      ..clear()
+      ..addAll(workout.exercises.map(_cloneEntry));
+    _warmups
+      ..clear()
+      ..addAll(workout.warmups.map(_cloneWarmupCooldown));
+    _cooldowns
+      ..clear()
+      ..addAll(workout.cooldowns.map(_cloneWarmupCooldown));
+  }
+
+  WorkoutExerciseEntry _cloneEntry(WorkoutExerciseEntry entry) {
+    return WorkoutExerciseEntry(
+      exercise: Exercise(
+        id: entry.exercise.id,
+        name: entry.exercise.name,
+        primaryMuscle: entry.exercise.primaryMuscle,
+        secondaryMuscles: List.of(entry.exercise.secondaryMuscles),
+      ),
+      equipment: entry.equipment
+          .map(
+            (e) => Equipment(
+              id: e.id,
+              name: e.name,
+              category: e.category,
+            ),
+          )
+          .toList(),
+      sets: entry.sets
+          .map(
+            (s) => WorkoutSet(
+              reps: s.reps,
+              weightKg: s.weightKg,
+              durationSeconds: s.durationSeconds,
+              tempoEccentric: s.tempoEccentric,
+              tempoPause1: s.tempoPause1,
+              tempoConcentric: s.tempoConcentric,
+              tempoPause2: s.tempoPause2,
+              distanceKm: s.distanceKm,
+              calories: s.calories,
+              rpe: s.rpe,
+              restSeconds: s.restSeconds,
+              note: s.note,
+            ),
+          )
+          .toList(),
+      note: entry.note,
+      exerciseDurationSeconds: entry.exerciseDurationSeconds,
+    );
+  }
+
+  WarmupCooldownItem _cloneWarmupCooldown(WarmupCooldownItem item) {
+    return WarmupCooldownItem(
+      id: item.id,
+      name: item.name,
+      type: item.type,
+      category: item.category,
+    );
+  }
+
+  Future<void> _createFromExisting() async {
+    final selected = await Navigator.of(context).push<Workout>(
+      MaterialPageRoute(
+        builder: (_) => ExistingWorkoutsScreen(currentCategory: cat),
+      ),
+    );
+    if (!mounted || selected == null) return;
+
+    if (selected.category != cat) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => CreateWorkoutScreen(
+            category: selected.category,
+            initialWorkout: selected,
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _applyWorkout(selected);
+    });
   }
 
   // ── SAVE ────────────────────────────────────────────────────────────────────
@@ -193,6 +297,19 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
         children: [
+          _Section(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _OutlinedAddButton(
+                    label: 'Create From Existing Workout',
+                    onTap: _createFromExisting,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // ── Name ──────────────────────────────────────────────────────────
           _Section(
             child: _LabeledField(
