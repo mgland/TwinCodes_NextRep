@@ -961,6 +961,7 @@ class _SetRowState extends State<_SetRow> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => _DurationPickerSheet(
         initial: initial,
         title: title,
@@ -1109,38 +1110,60 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _Sheet(
-      title: widget.title,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(child: _SpinnerColumn(
-                label: 'MIN',
-                value: _minutes,
-                max: 59,
-                onChanged: (v) => setState(() => _minutes = v),
-              )),
-              const Text(':', style: TextStyle(color: Colors.white, fontSize: 32)),
-              Expanded(child: _SpinnerColumn(
-                label: 'SEC',
-                value: _seconds,
-                max: 59,
-                onChanged: (v) => setState(() => _seconds = v),
-              )),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _AccentButton(
-            label: 'Confirm',
-            onTap: () {
-              widget.onPicked(_minutes * 60 + _seconds);
-              Navigator.pop(context);
-            },
-          ),
-        ],
-      ),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Container(
+        decoration: const BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _surface2,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.title,
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(child: _SpinnerColumn(
+                  label: 'MIN',
+                  value: _minutes,
+                  max: 59,
+                  onChanged: (v) => setState(() => _minutes = v),
+                )),
+                const Text(':', style: TextStyle(color: Colors.white, fontSize: 32)),
+                Expanded(child: _SpinnerColumn(
+                  label: 'SEC',
+                  value: _seconds,
+                  max: 59,
+                  onChanged: (v) => setState(() => _seconds = v),
+                )),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _AccentButton(
+              label: 'Confirm',
+              onTap: () {
+                widget.onPicked(_minutes * 60 + _seconds);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
     );
   }
 }
@@ -1332,6 +1355,7 @@ class _RestPicker extends StatelessWidget {
       onTap: () => showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
+        isScrollControlled: true,
         builder: (_) => _DurationPickerSheet(
           initial: value,
           title: label.isNotEmpty ? label : 'Rest Duration',
