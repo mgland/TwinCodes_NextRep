@@ -6,6 +6,7 @@ import '../models/equipment.dart';
 import '../models/warmup_cooldown.dart';
 import '../data/exercise_repository.dart';
 import '../data/equipment_repository.dart';
+import '../data/rest_preset_storage.dart';
 import '../data/workout_storage.dart';
 import '../data/warmup_cooldown_repository.dart';
 import 'existing_workouts_screen.dart';
@@ -411,23 +412,6 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                   ),
                 const SizedBox(height: 6),
                 _OutlinedAddButton(label: 'Add Exercise', onTap: _pickExercise),
-              ],
-            ),
-          ),
-
-          // ── Default rest ──────────────────────────────────────────────────
-          _Section(
-            child: Row(
-              children: [
-                const Icon(Icons.timer, color: _accent, size: 18),
-                const SizedBox(width: 8),
-                const Text('Default rest between sets',
-                    style: TextStyle(color: Colors.white, fontSize: 14)),
-                const Spacer(),
-                _RestPicker(
-                  value: _defaultRest,
-                  onChanged: (v) => setState(() => _defaultRest = v),
-                ),
               ],
             ),
           ),
@@ -1100,17 +1084,44 @@ class _DurationPickerSheet extends StatefulWidget {
 class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   late int _minutes;
   late int _seconds;
+  List<int> _presets = [];
 
   @override
   void initState() {
     super.initState();
     _minutes = widget.initial ~/ 60;
     _seconds = widget.initial % 60;
+    _presets = RestPresetStorage.instance.getPresets();
+  }
+
+  int get _currentSeconds => _minutes * 60 + _seconds;
+
+  void _applyPreset(BuildContext context, int seconds) {
+    widget.onPicked(seconds);
+    Navigator.pop(context);
+  }
+
+  Future<void> _addToPreset() async {
+    await RestPresetStorage.instance.addPreset(_currentSeconds);
+    setState(() => _presets = RestPresetStorage.instance.getPresets());
+  }
+
+  Future<void> _removePreset(int seconds) async {
+    await RestPresetStorage.instance.removePreset(seconds);
+    setState(() => _presets = RestPresetStorage.instance.getPresets());
+  }
+
+  String _fmtPreset(int s) {
+    if (s < 60) return '${s}s';
+    final m = s ~/ 60;
+    final rem = s % 60;
+    return rem == 0 ? '${m}m' : '${m}m ${rem}s';
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final alreadySaved = _presets.contains(_currentSeconds);
     return Container(
         decoration: const BoxDecoration(
           color: _surface,
@@ -1121,6 +1132,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── Drag handle ─────────────────────────────────────────────────
             Center(
               child: Container(
                 width: 40,
@@ -1132,11 +1144,90 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            Text(
-              widget.title,
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+            // ── Title + Add to Preset ────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: alreadySaved ? null : _addToPreset,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: alreadySaved ? _surface2 : _accent.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: alreadySaved ? _surface2 : _accent,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          alreadySaved ? Icons.bookmark : Icons.bookmark_border,
+                          color: alreadySaved ? _subtle : _accent,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          alreadySaved ? 'Saved' : 'Add Preset',
+                          style: TextStyle(
+                            color: alreadySaved ? _subtle : _accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            // ── Preset chips ────────────────────────────────────────────────
+            if (_presets.isNotEmpty)
+              SizedBox(
+                height: 34,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _presets.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) {
+                    final s = _presets[i];
+                    final active = s == _currentSeconds;
+                    return GestureDetector(
+                      onTap: () => _applyPreset(context, s),
+                      onLongPress: () => _removePreset(s),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: active ? _accent : _surface2,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: active ? _accent : _surface2,
+                          ),
+                        ),
+                        child: Text(
+                          _fmtPreset(s),
+                          style: TextStyle(
+                            color: active ? Colors.white : _subtle,
+                            fontSize: 13,
+                            fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             const SizedBox(height: 14),
+            // ── Spinners ────────────────────────────────────────────────────
             Row(
               children: [
                 Expanded(child: _SpinnerColumn(
@@ -1158,7 +1249,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             _AccentButton(
               label: 'Confirm',
               onTap: () {
-                widget.onPicked(_minutes * 60 + _seconds);
+                widget.onPicked(_currentSeconds);
                 Navigator.pop(context);
               },
             ),
