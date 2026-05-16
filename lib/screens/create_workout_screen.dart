@@ -253,17 +253,35 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                       style: const TextStyle(color: _dimmer, fontSize: 13),
                     ),
                   ),
-                ..._entries.asMap().entries.map(
-                      (e) => _ExerciseCard(
-                        index: e.key,
-                        entry: e.value,
+                if (_entries.isNotEmpty)
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: _entries.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
+                        final moved = _entries.removeAt(oldIndex);
+                        _entries.insert(newIndex, moved);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final entry = _entries[index];
+                      return _ExerciseCard(
+                        key: ValueKey('${entry.exercise.id}_$index'),
+                        index: index,
+                        entry: entry,
                         category: cat,
                         defaultRest: _defaultRest,
-                        onRemove: () => setState(() => _entries.removeAt(e.key)),
-                        onPickEquipment: () => _pickEquipment(e.value),
+                        onRemove: () => setState(() => _entries.removeAt(index)),
+                        onPickEquipment: () => _pickEquipment(entry),
                         onChanged: () => setState(() {}),
-                      ),
-                    ),
+                      );
+                    },
+                  ),
                 const SizedBox(height: 6),
                 _OutlinedAddButton(label: 'Add Exercise', onTap: _pickExercise),
               ],
@@ -345,6 +363,7 @@ class _ExerciseCard extends StatelessWidget {
   final VoidCallback onChanged;
 
   const _ExerciseCard({
+    super.key,
     required this.index,
     required this.entry,
     required this.category,
@@ -399,6 +418,14 @@ class _ExerciseCard extends StatelessWidget {
                         style: const TextStyle(color: _subtle, fontSize: 12),
                       ),
                     ],
+                  ),
+                ),
+                ReorderableDragStartListener(
+                  index: index,
+                  child: IconButton(
+                    icon: const Icon(Icons.open_with, color: _accent, size: 18),
+                    onPressed: null,
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
                 IconButton(
