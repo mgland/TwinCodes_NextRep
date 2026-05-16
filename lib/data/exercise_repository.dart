@@ -65,6 +65,12 @@ class ExerciseRepository {
       primaryMuscle: MuscleGroup.back,
     ),
     Exercise(
+      id: 'b2a',
+      name: 'Chin Up',
+      primaryMuscle: MuscleGroup.back,
+      secondaryMuscles: [MuscleGroup.biceps],
+    ),
+    Exercise(
       id: 'b3',
       name: 'Deadlift',
       primaryMuscle: MuscleGroup.back,

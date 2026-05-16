@@ -148,6 +148,7 @@ class WorkoutExerciseEntry {
 // ── Top-level workout ─────────────────────────────────────────────────────────
 
 class Workout {
+  int? storageKey;
   String name;
   WorkoutCategory category;
   List<WorkoutExerciseEntry> exercises;
@@ -157,6 +158,7 @@ class Workout {
   DateTime createdAt;
 
   Workout({
+    this.storageKey,
     required this.name,
     required this.category,
     List<WorkoutExerciseEntry>? exercises,

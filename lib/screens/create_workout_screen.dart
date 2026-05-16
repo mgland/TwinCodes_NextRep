@@ -9,6 +9,7 @@ import '../data/equipment_repository.dart';
 import '../data/workout_storage.dart';
 import '../data/warmup_cooldown_repository.dart';
 import 'existing_workouts_screen.dart';
+import 'workout_creation_pickers.dart';
 
 // ── Shared palette ────────────────────────────────────────────────────────────
 
@@ -34,11 +35,13 @@ String _fmtSeconds(int s) {
 class CreateWorkoutScreen extends StatefulWidget {
   final WorkoutCategory category;
   final Workout? initialWorkout;
+  final int? editingStorageKey;
 
   const CreateWorkoutScreen({
     super.key,
     required this.category,
     this.initialWorkout,
+    this.editingStorageKey,
   });
 
   @override
@@ -172,12 +175,16 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       return;
     }
     final workout = Workout(
+      storageKey: widget.editingStorageKey,
       name: _nameController.text.trim().isEmpty ? 'My Workout' : _nameController.text.trim(),
       category: cat,
       exercises: _entries,
       warmups: _warmups,
       cooldowns: _cooldowns,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+      createdAt: widget.editingStorageKey != null
+          ? (widget.initialWorkout?.createdAt ?? DateTime.now())
+          : DateTime.now(),
     );
     await WorkoutStorage.instance.saveWorkout(workout);
     showDialog(
@@ -185,7 +192,10 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: _surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Workout saved!', style: TextStyle(color: Colors.white)),
+        title: Text(
+          widget.editingStorageKey != null ? 'Workout updated!' : 'Workout saved!',
+          style: const TextStyle(color: Colors.white),
+        ),
         content: Text(
           '"${workout.name}" — ${_entries.length} exercise(s), '
           '${_warmups.length} warm-up(s), ${_cooldowns.length} cool-down(s).',
@@ -211,7 +221,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const _ExercisePickerSheet(),
+      builder: (_) => const ExercisePickerSheet(),
     );
     if (picked == null) return;
     setState(() {
@@ -226,7 +236,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _EquipmentPickerSheet(selected: List.of(entry.equipment)),
+      builder: (_) => EquipmentPickerSheet(selected: List.of(entry.equipment)),
     );
     if (picked == null) return;
     setState(() => entry.equipment = picked);
@@ -240,7 +250,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _WarmupCooldownPickerSheet(
+      builder: (_) => WarmupCooldownPickerSheet(
         selected: List.of(current),
         filterType:
             isWarmup ? WarmupCooldownType.warmup : WarmupCooldownType.cooldown,

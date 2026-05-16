@@ -34,15 +34,24 @@ class WorkoutStorage {
 
   Future<void> saveWorkout(Workout workout) async {
     final box = await _ensureBox();
-    await box.add(_workoutToMap(workout));
+    if (workout.storageKey != null && box.containsKey(workout.storageKey)) {
+      await box.put(workout.storageKey, _workoutToMap(workout));
+      return;
+    }
+
+    final key = await box.add(_workoutToMap(workout));
+    workout.storageKey = key;
   }
 
   List<Workout> getAllWorkouts() {
     if (_box == null) return [];
 
-    return _box!.values
-        .whereType<Map>()
-        .map((m) => _workoutFromMap(Map<String, dynamic>.from(m)))
+    return _box!.toMap().entries
+        .where((entry) => entry.value is Map)
+        .map((entry) => _workoutFromMap(
+              Map<String, dynamic>.from(entry.value as Map),
+              storageKey: entry.key is int ? entry.key as int : null,
+            ))
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -109,7 +118,7 @@ class WorkoutStorage {
     };
   }
 
-  Workout _workoutFromMap(Map<String, dynamic> m) {
+  Workout _workoutFromMap(Map<String, dynamic> m, {int? storageKey}) {
     final categoryIndex = _asInt(m['category']) ?? 0;
     final createdAtRaw = m['createdAt'] as String?;
     final createdAt = createdAtRaw == null
@@ -127,6 +136,7 @@ class WorkoutStorage {
         .toList();
 
     return Workout(
+      storageKey: storageKey,
       name: m['name'] as String? ?? 'Workout',
       category: WorkoutCategory.values[_clampIndex(categoryIndex, WorkoutCategory.values.length)],
       exercises: exercises,

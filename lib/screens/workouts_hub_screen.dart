@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/workout_storage.dart';
 import '../models/workout.dart';
+import 'create_workout_screen.dart';
 import 'workout_type_selection_screen.dart';
 
 class WorkoutsHubScreen extends StatefulWidget {
@@ -29,6 +30,20 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
   Future<void> _goCreateWorkout() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const WorkoutTypeSelectionScreen()),
+    );
+    if (!mounted) return;
+    _loadWorkouts();
+  }
+
+  Future<void> _goEditWorkout(Workout workout) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CreateWorkoutScreen(
+          category: workout.category,
+          initialWorkout: workout,
+          editingStorageKey: workout.storageKey,
+        ),
+      ),
     );
     if (!mounted) return;
     _loadWorkouts();
@@ -147,13 +162,28 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            workout.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  workout.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _goEditWorkout(workout),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF2A9D8F),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 7),
           Text(
