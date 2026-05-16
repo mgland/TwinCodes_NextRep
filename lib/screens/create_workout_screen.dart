@@ -677,6 +677,7 @@ class _ExerciseCard extends StatelessWidget {
                         builder: (_) => _DurationPickerSheet(
                           initial: 90,
                           title: 'Rest Between Exercises',
+                          isDefaultInitial: true,
                           onPicked: (v) {
                             entry.restAfterExerciseSeconds = v;
                             onChanged();
@@ -1139,11 +1140,13 @@ class _DurationPickerSheet extends StatefulWidget {
   final int initial;
   final String title;
   final ValueChanged<int> onPicked;
+  final bool isDefaultInitial;
 
   const _DurationPickerSheet({
     required this.initial,
     required this.title,
     required this.onPicked,
+    this.isDefaultInitial = false,
   });
 
   @override
@@ -1154,6 +1157,8 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   late int _minutes;
   late int _seconds;
   List<int> _presets = [];
+  int? _lastUsed;
+  final _activeChipKey = GlobalKey();
 
   @override
   void initState() {
@@ -1161,11 +1166,24 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
     _minutes = widget.initial ~/ 60;
     _seconds = widget.initial % 60;
     _presets = RestPresetStorage.instance.getPresets();
+    _lastUsed = RestPresetStorage.instance.getLastUsed();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToActive());
+  }
+
+  void _scrollToActive() {
+    final ctx = _activeChipKey.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut);
+    }
   }
 
   int get _currentSeconds => _minutes * 60 + _seconds;
 
   void _applyPreset(BuildContext context, int seconds) {
+    RestPresetStorage.instance.saveLastUsed(seconds);
     widget.onPicked(seconds);
     Navigator.pop(context);
   }
@@ -1191,6 +1209,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final alreadySaved = _presets.contains(_currentSeconds);
+    final activeChip = widget.isDefaultInitial ? _lastUsed : _currentSeconds;
     return Container(
         decoration: const BoxDecoration(
           color: _surface,
@@ -1277,8 +1296,9 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       final s = _presets[i];
-                      final active = s == _currentSeconds;
+                      final active = s == activeChip;
                       return GestureDetector(
+                        key: active ? _activeChipKey : null,
                         onTap: () => _applyPreset(context, s),
                         onLongPress: () => _removePreset(s),
                         child: AnimatedContainer(
@@ -1328,6 +1348,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             _AccentButton(
               label: 'Confirm',
               onTap: () {
+                RestPresetStorage.instance.saveLastUsed(_currentSeconds);
                 widget.onPicked(_currentSeconds);
                 Navigator.pop(context);
               },
