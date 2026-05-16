@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../constants/app_constants.dart';
@@ -16,7 +19,16 @@ class WorkoutStorage {
   Box<dynamic>? _box;
 
   Future<void> init() async {
-    await Hive.initFlutter();
+    try {
+      await Hive.initFlutter();
+    } on MissingPluginException {
+      // Fallback for environments where path_provider is unavailable/not registered.
+      final dir = Directory('${Directory.systemTemp.path}/${AppConstants.appIdentifier}');
+      if (!dir.existsSync()) {
+        dir.createSync(recursive: true);
+      }
+      Hive.init(dir.path);
+    }
     _box ??= await Hive.openBox<dynamic>(_boxName);
   }
 
