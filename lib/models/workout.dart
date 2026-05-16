@@ -135,12 +135,16 @@ class WorkoutExerciseEntry {
   // Time-based: a single duration for the whole exercise (overrides set durations)
   int? exerciseDurationSeconds;
 
+  // Rest between this exercise and the next (seconds); null = no rest
+  int? restAfterExerciseSeconds;
+
   WorkoutExerciseEntry({
     required this.exercise,
     List<Equipment>? equipment,
     List<WorkoutSet>? sets,
     this.note,
     this.exerciseDurationSeconds,
+    this.restAfterExerciseSeconds,
   })  : equipment = equipment ?? [],
         sets = sets ?? [WorkoutSet()];
 }

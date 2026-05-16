@@ -89,6 +89,7 @@ class WorkoutStorage {
       'sets': e.sets.map(_setToMap).toList(),
       'note': e.note,
       'exerciseDurationSeconds': e.exerciseDurationSeconds,
+      'restAfterExerciseSeconds': e.restAfterExerciseSeconds,
     };
   }
 
@@ -181,6 +182,7 @@ class WorkoutStorage {
       sets: sets,
       note: m['note'] as String?,
       exerciseDurationSeconds: _asInt(m['exerciseDurationSeconds']),
+      restAfterExerciseSeconds: _asInt(m['restAfterExerciseSeconds']),
     );
   }
 

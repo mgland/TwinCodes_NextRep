@@ -404,6 +404,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                         entry: entry,
                         category: cat,
                         defaultRest: _defaultRest,
+                        isLast: index == _entries.length - 1,
                         onRemove: () => setState(() => _entries.removeAt(index)),
                         onPickEquipment: () => _pickEquipment(entry),
                         onChanged: () => setState(() {}),
@@ -469,6 +470,7 @@ class _ExerciseCard extends StatelessWidget {
   final WorkoutExerciseEntry entry;
   final WorkoutCategory category;
   final int defaultRest;
+  final bool isLast;
   final VoidCallback onRemove;
   final VoidCallback onPickEquipment;
   final VoidCallback onChanged;
@@ -479,6 +481,7 @@ class _ExerciseCard extends StatelessWidget {
     required this.entry,
     required this.category,
     required this.defaultRest,
+    required this.isLast,
     required this.onRemove,
     required this.onPickEquipment,
     required this.onChanged,
@@ -648,6 +651,72 @@ class _ExerciseCard extends StatelessWidget {
                 ..selection = TextSelection.collapsed(offset: entry.note?.length ?? 0),
             ),
           ),
+
+          // ── Rest after exercise ─────────────────────────────────────────
+          if (!isLast)
+            Container(
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: entry.restAfterExerciseSeconds == null
+                    ? const BorderRadius.only(
+                        topRight: Radius.circular(14),
+                        bottomLeft: Radius.circular(14),
+                      )
+                    : const BorderRadius.only(
+                        bottomLeft: Radius.circular(14),
+                        bottomRight: Radius.circular(14),
+                      ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: entry.restAfterExerciseSeconds == null
+                  ? GestureDetector(
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (_) => _DurationPickerSheet(
+                          initial: 90,
+                          title: 'Rest Between Exercises',
+                          onPicked: (v) {
+                            entry.restAfterExerciseSeconds = v;
+                            onChanged();
+                          },
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.add, color: _accent, size: 14),
+                          SizedBox(width: 4),
+                          Text('Add rest', style: TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    )
+                  : Row(
+                      children: [
+                        const Icon(Icons.timer, color: _accent, size: 14),
+                        const SizedBox(width: 6),
+                        const Text('Rest:', style: TextStyle(color: _subtle, fontSize: 12)),
+                        const SizedBox(width: 6),
+                        _RestPicker(
+                          value: entry.restAfterExerciseSeconds!,
+                          label: 'Rest Between Exercises',
+                          onChanged: (v) {
+                            entry.restAfterExerciseSeconds = v;
+                            onChanged();
+                          },
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () {
+                            entry.restAfterExerciseSeconds = null;
+                            onChanged();
+                          },
+                          child: const Icon(Icons.close, color: _dimmer, size: 15),
+                        ),
+                      ],
+                    ),
+            ),
         ],
       ),
     );
