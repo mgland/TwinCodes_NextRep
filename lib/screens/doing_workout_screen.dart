@@ -32,6 +32,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   late final List<GlobalKey> _cardHeaderKeys;
   List<_RailNode> _railNodes = const [];
   bool _measureScheduled = false;
+  double _scrollOffset = 0.0;
 
   @override
   void initState() {
@@ -51,6 +52,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _cardHeaderKeys = List.generate(_items.length, (_) => GlobalKey());
     _activeIndex = _items.isEmpty ? null : 0;
     _scrollController.addListener(_scheduleRailMeasurement);
+    _scrollController.addListener(_updateScrollOffset);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
@@ -70,8 +72,17 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   void dispose() {
     _ticker?.cancel();
     _scrollController.removeListener(_scheduleRailMeasurement);
+    _scrollController.removeListener(_updateScrollOffset);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _updateScrollOffset() {
+    if (!mounted) return;
+    final offset = _scrollController.hasClients ? _scrollController.offset.clamp(0.0, double.infinity) : 0.0;
+    if ((offset - _scrollOffset).abs() > 0.5) {
+      setState(() => _scrollOffset = offset);
+    }
   }
 
   void _scheduleRailMeasurement() {
@@ -381,7 +392,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
             child: Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               decoration: BoxDecoration(
@@ -444,246 +455,287 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
             ),
           ),
           Expanded(
-            child: ShaderMask(
-              shaderCallback: (Rect bounds) {
-                return const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black,
-                    Colors.black,
-                    Colors.transparent,
-                  ],
-                  stops: [0.0, 0.07, 0.93, 1.0],
-                ).createShader(bounds);
-              },
-              blendMode: BlendMode.dstIn,
-              child: Stack(
-                key: _railLayerKey,
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  Positioned.fill(
-                    child: ClipRect(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _WorkoutBranchPainter(nodes: _railNodes),
-                        ),
+            child: Stack(
+              key: _railLayerKey,
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned.fill(
+                  child: ClipRect(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _WorkoutBranchPainter(nodes: _railNodes),
                       ),
                     ),
                   ),
-                  ListView.builder(
+                ),
+                ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
                   itemCount: _items.length,
                   itemBuilder: (context, index) {
-                final item = _items[index];
-                final isActive = index == _activeIndex;
-                final prevReps = _previousSessionRepsByItemIndex[index];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            key: _railAnchorKeys[index],
-                            width: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: GestureDetector(
-                            onTap: () {
-                              setState(() => _activeIndex = index);
-                              _scheduleRailMeasurement();
-                            },
-                            child: AnimatedContainer(
-                            key: _cardKeys[index],
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              gradient: isActive
-                                  ? const LinearGradient(
-                                      colors: [Color(0xFF1D3137), Color(0xFF233B40)],
-                                    )
-                                  : const LinearGradient(
-                                      colors: [Color(0xFF18272C), Color(0xFF1B2C31)],
-                                    ),
-                              border: Border.all(
-                                color: item.done
-                                    ? const Color(0xFF27D16D)
-                                    : isActive
-                                        ? const Color(0xFF2A9D8F)
-                                        : const Color(0xFF24373D),
+                    final item = _items[index];
+                    final isActive = index == _activeIndex;
+                    final prevReps = _previousSessionRepsByItemIndex[index];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                key: _railAnchorKeys[index],
+                                width: 22,
                               ),
-                            ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    key: _cardHeaderKeys[index],
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.title,
-                                          style: TextStyle(
-                                            color: item.done
-                                                ? const Color(0xFF32DA72)
-                                                : Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() => _activeIndex = index);
+                                      _scheduleRailMeasurement();
+                                    },
+                                    child: AnimatedContainer(
+                                      key: _cardKeys[index],
+                                      duration: const Duration(milliseconds: 180),
+                                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+                                        gradient: isActive
+                                            ? const LinearGradient(
+                                                colors: [Color(0xFF1D3137), Color(0xFF233B40)],
+                                              )
+                                            : const LinearGradient(
+                                                colors: [Color(0xFF18272C), Color(0xFF1B2C31)],
+                                              ),
+                                        border: Border.all(
+                                          color: item.done
+                                              ? const Color(0xFF27D16D)
+                                              : isActive
+                                                  ? const Color(0xFF2A9D8F)
+                                                  : const Color(0xFF24373D),
                                         ),
                                       ),
-                                      if (prevReps != null)
-                                        Text(
-                                          'Prev: $prevReps',
-                                          style: const TextStyle(
-                                            color: Color(0xFF9AAAB3),
-                                            fontSize: 12,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            key: _cardHeaderKeys[index],
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  item.title,
+                                                  style: TextStyle(
+                                                    color: item.done
+                                                        ? const Color(0xFF32DA72)
+                                                        : Colors.white,
+                                                    fontSize: 15,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (prevReps != null)
+                                                Text(
+                                                  'Prev: $prevReps',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF9AAAB3),
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              const SizedBox(width: 8),
+                                              GestureDetector(
+                                                onTap: () => _toggleDone(index),
+                                                child: AnimatedContainer(
+                                                  duration: const Duration(milliseconds: 150),
+                                                  width: 26,
+                                                  height: 26,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: item.done
+                                                        ? const Color(0xFF28D66D)
+                                                        : Colors.transparent,
+                                                    border: Border.all(
+                                                      color: item.done
+                                                          ? const Color(0xFF28D66D)
+                                                          : const Color(0xFF2DD06F),
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                  child: item.done
+                                                      ? const Icon(
+                                                          Icons.check,
+                                                          color: Color(0xFF042111),
+                                                          size: 16,
+                                                        )
+                                                      : null,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                      const SizedBox(width: 8),
-                                      GestureDetector(
-                                        onTap: () => _toggleDone(index),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 150),
-                                          width: 26,
-                                          height: 26,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: item.done
-                                                ? const Color(0xFF28D66D)
-                                                : Colors.transparent,
-                                            border: Border.all(
-                                              color: item.done
-                                                  ? const Color(0xFF28D66D)
-                                                  : const Color(0xFF2DD06F),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: item.done
-                                              ? const Icon(Icons.check,
-                                                  color: Color(0xFF042111), size: 16)
-                                              : null,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    item.subtitle,
-                                    style: const TextStyle(
-                                      color: Color(0xFF8A9BA8),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  if (isActive && item.kind == _DoingItemKind.exercise) ...[
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '${item.done ? 'Reps' : 'Goal'}:',
-                                          style: const TextStyle(
-                                            color: Color(0xFFD1D7DC),
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          width: 56,
-                                          height: 30,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(8),
-                                            color: const Color(0xFF152126),
-                                          ),
-                                          child: Text(
-                                              item.reps?.toString() ?? '',
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            item.subtitle,
                                             style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF8A9BA8),
+                                              fontSize: 12,
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _MiniCircleButton(
-                                          label: '=',
-                                          onTap: () => setState(() {
-                                            item.reps = prevReps ?? item.goalReps;
-                                          }),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        _MiniCircleButton(
-                                          label: '+',
-                                          color: const Color(0xFF2FE26F),
-                                          onTap: () => setState(() {
-                                            item.reps = (item.reps ?? 0) + 1;
-                                          }),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        _MiniCircleButton(
-                                          label: '-',
-                                          color: const Color(0xFFE45252),
-                                          onTap: () => setState(() {
-                                            final current = item.reps;
-                                            if (current == null) return;
-                                            item.reps = current > 0 ? current - 1 : 0;
-                                          }),
-                                        ),
-                                      ],
+                                          if (isActive &&
+                                              item.kind == _DoingItemKind.exercise) ...[
+                                            const SizedBox(height: 10),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '${item.done ? 'Reps' : 'Goal'}:',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFD1D7DC),
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  width: 56,
+                                                  height: 30,
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    color: const Color(0xFF152126),
+                                                  ),
+                                                  child: Text(
+                                                    item.reps?.toString() ?? '',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 20,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                _MiniCircleButton(
+                                                  label: '=',
+                                                  onTap: () => setState(() {
+                                                    item.reps = prevReps ?? item.goalReps;
+                                                  }),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                _MiniCircleButton(
+                                                  label: '+',
+                                                  color: const Color(0xFF2FE26F),
+                                                  onTap: () => setState(() {
+                                                    item.reps = (item.reps ?? 0) + 1;
+                                                  }),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                _MiniCircleButton(
+                                                  label: '-',
+                                                  color: const Color(0xFFE45252),
+                                                  onTap: () => setState(() {
+                                                    final current = item.reps;
+                                                    if (current == null) return;
+                                                    item.reps = current > 0 ? current - 1 : 0;
+                                                  }),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ],
+                                  ),
+                                ),
                               ),
+                            ],
+                          ),
+                        ),
+                        if (_restingItemIndex == index && _restSecondsRemaining > 0)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(30, 0, 0, 10),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.timelapse,
+                                  color: Color(0xFF63C59A),
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Resting:',
+                                  style: TextStyle(
+                                    color: Color(0xFF63C59A),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _fmtClock(_restSecondsRemaining),
+                                  style: const TextStyle(
+                                    color: Color(0xFFD8DEE4),
+                                    fontSize: 34,
+                                    height: 0.9,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: (_scrollOffset / 40.0).clamp(0.0, 1.0),
+                      child: Container(
+                        height: 34,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0xFF0D1B1E),
+                              Color(0xE60D1B1E),
+                              Color(0x8C0D1B1E),
+                              Color(0x000D1B1E),
+                            ],
+                            stops: [0.0, 0.32, 0.7, 1.0],
                           ),
                         ),
                       ),
-                    ],
-                  ),
                     ),
-                    if (_restingItemIndex == index && _restSecondsRemaining > 0)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(30, 0, 0, 10),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.timelapse, color: Color(0xFF63C59A), size: 14),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'Resting:',
-                              style: TextStyle(
-                                color: Color(0xFF63C59A),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _fmtClock(_restSecondsRemaining),
-                              style: const TextStyle(
-                                color: Color(0xFFD8DEE4),
-                                fontSize: 34,
-                                height: 0.9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 34,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Color(0xFF0D1B1E),
+                            Color(0xE60D1B1E),
+                            Color(0x8C0D1B1E),
+                            Color(0x000D1B1E),
                           ],
+                          stops: [0.0, 0.32, 0.7, 1.0],
                         ),
                       ),
-                  ],
-                );
-                  },
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ),
         ],
       ),
     );
