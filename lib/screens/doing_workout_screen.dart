@@ -444,17 +444,35 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
             ),
           ),
           Expanded(
-            child: Stack(
-              key: _railLayerKey,
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _WorkoutBranchPainter(nodes: _railNodes),
+            child: ShaderMask(
+              shaderCallback: (Rect bounds) {
+                return const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black,
+                    Colors.black,
+                    Colors.transparent,
+                  ],
+                  stops: [0.0, 0.07, 0.93, 1.0],
+                ).createShader(bounds);
+              },
+              blendMode: BlendMode.dstIn,
+              child: Stack(
+                key: _railLayerKey,
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  Positioned.fill(
+                    child: ClipRect(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _WorkoutBranchPainter(nodes: _railNodes),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                ListView.builder(
+                  ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
                   itemCount: _items.length,
@@ -564,7 +582,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                       fontSize: 12,
                                     ),
                                   ),
-                                  if (isActive) ...[
+                                  if (isActive && item.kind == _DoingItemKind.exercise) ...[
                                     const SizedBox(height: 10),
                                     Row(
                                       children: [
@@ -665,6 +683,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
               ],
             ),
           ),
+        ),
         ],
       ),
     );
@@ -822,7 +841,7 @@ class _WorkoutBranchPainter extends CustomPainter {
     _drawDashedFadeVertical(
       canvas,
       x: sorted.first.x,
-      startY: 8,
+      startY: 0,
       endY: sorted.first.y,
       color: sorted.first.color,
       fadeOutAtStart: true,
