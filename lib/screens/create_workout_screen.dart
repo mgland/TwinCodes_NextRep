@@ -933,13 +933,9 @@ class _SetRowState extends State<_SetRow> {
     }
   }
 
-  Widget _repsCell() => _NumericCell(
-        value: widget.set_.reps?.toString() ?? '',
-        hint: 'Max',
-        onChanged: (v) {
-          widget.set_.reps = int.tryParse(v);
-          widget.onChanged();
-        },
+  Widget _repsCell() => _TappableCell(
+        label: widget.set_.reps?.toString() ?? 'Max',
+        onTap: () => _pickReps(),
       );
 
   Widget _weightCell() => _NumericCell(
@@ -1063,6 +1059,24 @@ class _SetRowState extends State<_SetRow> {
         onPicked: (v) {
           setState(() {
             widget.set_.rpe = v;
+            widget.onChanged();
+          });
+        },
+      ),
+    );
+  }
+
+  void _pickReps() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _RepsPickerSheet(
+        initial: widget.set_.reps ?? 0,
+        initialCenterValue: widget.set_.reps,
+        onPicked: (v) {
+          setState(() {
+            widget.set_.reps = v;
             widget.onChanged();
           });
         },
@@ -1362,6 +1376,241 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
             ),
           ],
         ),
+    );
+  }
+}
+
+class _RepsPickerSheet extends StatefulWidget {
+  final int initial;
+  final int? initialCenterValue;
+  final ValueChanged<int> onPicked;
+
+  const _RepsPickerSheet({
+    required this.initial,
+    this.initialCenterValue,
+    required this.onPicked,
+  });
+
+  @override
+  State<_RepsPickerSheet> createState() => _RepsPickerSheetState();
+}
+
+class _RepsPickerSheetState extends State<_RepsPickerSheet> {
+  final List<int> _quickValues = List<int>.generate(13, (i) => i);
+  final ScrollController _quickScrollController = ScrollController();
+  late int _selectedValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedValue = widget.initial < 0 ? 0 : widget.initial;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final centerValue = widget.initialCenterValue;
+      if (centerValue != null && centerValue >= 0 && centerValue <= _quickValues.last) {
+        _centerQuickValue(centerValue);
+      }
+    });
+  }
+
+  void _centerQuickValue(int value) {
+    if (!_quickScrollController.hasClients) return;
+    const chipWidth = 30.0;
+    const chipGap = 6.0;
+    final viewport = _quickScrollController.position.viewportDimension;
+    final targetCenter = value * (chipWidth + chipGap) + (chipWidth / 2);
+    final targetOffset = (targetCenter - (viewport / 2)).clamp(
+      0.0,
+      _quickScrollController.position.maxScrollExtent,
+    );
+    _quickScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _quickScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    final quickLeftOpacity = _quickScrollController.hasClients
+        ? (_quickScrollController.position.pixels / 10.0).clamp(0.0, 1.0)
+        : 0.0;
+    final quickRightOpacity = _quickScrollController.hasClients
+        ? ((_quickScrollController.position.maxScrollExtent -
+                    _quickScrollController.position.pixels) /
+                10.0)
+            .clamp(0.0, 1.0)
+        : 0.0;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _surface2,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Set Reps',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Quick Select',
+              style: TextStyle(
+                color: Colors.white.withAlpha(180),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 32,
+            child: Stack(
+              children: [
+                NotificationListener<ScrollNotification>(
+                  onNotification: (_) {
+                    setState(() {});
+                    return false;
+                  },
+                  child: ListView.separated(
+                    controller: _quickScrollController,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _quickValues.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, i) {
+                      final v = _quickValues[i];
+                      final isSelected = v == _selectedValue;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedValue = v),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: isSelected ? const Color(0xFF2A6B52) : const Color(0xFF112026),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF59B38A)
+                                  : const Color(0xFF22343B),
+                            ),
+                          ),
+                          child: Text(
+                            '$v',
+                            style: TextStyle(
+                              color: Colors.white.withAlpha(isSelected ? 255 : 210),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: quickLeftOpacity,
+                      child: Container(
+                        width: 10,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [Color(0xFF152126), Color(0x00152126)],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: quickRightOpacity,
+                      child: Container(
+                        width: 10,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerRight,
+                            end: Alignment.centerLeft,
+                            colors: [Color(0xFF152126), Color(0x00152126)],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_up, color: _accent),
+                onPressed: () => setState(() => _selectedValue += 1),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          Text(
+            _selectedValue.toString().padLeft(2, '0'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w700),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.keyboard_arrow_down, color: _accent),
+                onPressed:
+                    _selectedValue > 0 ? () => setState(() => _selectedValue -= 1) : null,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _AccentButton(
+            label: 'Confirm',
+            onTap: () {
+              widget.onPicked(_selectedValue);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

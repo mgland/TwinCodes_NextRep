@@ -491,7 +491,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                 final v = quickValues[i];
                                 final isSelected = v == selectedValue;
                                 return GestureDetector(
-                                  onTap: () => setLocalState(() => selectedValue = v),
+                                  onTap: () => Navigator.of(dialogContext).pop(v),
                                   child: AnimatedContainer(
                                     duration: const Duration(milliseconds: 150),
                                     width: 30,
