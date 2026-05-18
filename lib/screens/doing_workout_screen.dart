@@ -194,16 +194,17 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
 
   List<_DoingItemState> _buildItems(Workout workout) {
     final out = <_DoingItemState>[];
-    for (final w in workout.warmups) {
+    if (workout.warmups.isNotEmpty) {
       out.add(_DoingItemState(
-        title: w.name,
+        title: 'Warm-Up',
         subtitle: 'Warm-up',
         kind: _DoingItemKind.warmup,
         exerciseId: null,
         setIndex: null,
         goalReps: null,
         reps: null,
-        restSeconds: 30,
+        restSeconds: 0,
+        detailLines: workout.warmups.map((w) => w.name).toList(),
       ));
     }
 
@@ -241,16 +242,17 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       }
     }
 
-    for (final c in workout.cooldowns) {
+    if (workout.cooldowns.isNotEmpty) {
       out.add(_DoingItemState(
-        title: c.name,
+        title: 'Cool-Down',
         subtitle: 'Cool-down',
         kind: _DoingItemKind.cooldown,
         exerciseId: null,
         setIndex: null,
         goalReps: null,
         reps: null,
-        restSeconds: 20,
+        restSeconds: 0,
+        detailLines: workout.cooldowns.map((c) => c.name).toList(),
       ));
     }
     return out;
@@ -314,8 +316,13 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       item.done = !item.done;
       if (item.done) {
         if ((item.reps ?? 0) <= 0) item.reps = item.goalReps;
-        _restSecondsRemaining = item.restSeconds;
-        _restingItemIndex = item.restSeconds > 0 ? index : null;
+        if (item.kind == _DoingItemKind.exercise) {
+          _restSecondsRemaining = item.restSeconds;
+          _restingItemIndex = item.restSeconds > 0 ? index : null;
+        } else {
+          _restSecondsRemaining = 0;
+          _restingItemIndex = null;
+        }
         final next = _items.indexWhere((it) => !it.done, index + 1);
         _activeIndex = next == -1 ? index : next;
       } else {
@@ -608,15 +615,47 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                             key: _cardHeaderKeys[index],
                                             children: [
                                               Expanded(
-                                                child: Text(
-                                                  item.title,
-                                                  style: TextStyle(
-                                                    color: item.done
-                                                        ? const Color(0xFF32DA72)
-                                                        : Colors.white,
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        item.title,
+                                                        style: TextStyle(
+                                                          color: item.done
+                                                              ? const Color(0xFF32DA72)
+                                                              : Colors.white,
+                                                          fontSize: 15,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (item.detailLines.isNotEmpty) ...[
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(999),
+                                                          color: item.kind == _DoingItemKind.warmup
+                                                              ? const Color(0xFF4A3B25)
+                                                              : const Color(0xFF223C4B),
+                                                        ),
+                                                        child: Text(
+                                                          '${item.detailLines.length}',
+                                                          style: TextStyle(
+                                                            color: item.kind == _DoingItemKind.warmup
+                                                                ? const Color(0xFFFFC15A)
+                                                                : const Color(0xFF8CCAE8),
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w700,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
                                                 ),
                                               ),
                                               if (prevReps != null)
@@ -657,14 +696,48 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            item.subtitle,
-                                            style: const TextStyle(
-                                              color: Color(0xFF8A9BA8),
-                                              fontSize: 12,
+                                          if (item.detailLines.isNotEmpty) ...[
+                                            const SizedBox(height: 10),
+                                            for (final line in item.detailLines) ...[
+                                              Padding(
+                                                padding: const EdgeInsets.only(bottom: 6),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        color: item.kind == _DoingItemKind.warmup
+                                                            ? const Color(0xFFFFC15A)
+                                                            : const Color(0xFF8CCAE8),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        line,
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF9AAAB3),
+                                                          fontSize: 14,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ] else ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              item.subtitle,
+                                              style: const TextStyle(
+                                                color: Color(0xFF8A9BA8),
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                           if (isActive &&
                                               item.kind == _DoingItemKind.exercise) ...[
                                             const SizedBox(height: 10),
@@ -1059,6 +1132,7 @@ enum _DoingItemKind { warmup, exercise, cooldown }
 class _DoingItemState {
   final String title;
   final String subtitle;
+  final List<String> detailLines;
   final _DoingItemKind kind;
   final String? exerciseId;
   final int? setIndex;
@@ -1070,6 +1144,7 @@ class _DoingItemState {
   _DoingItemState({
     required this.title,
     required this.subtitle,
+    this.detailLines = const [],
     required this.kind,
     required this.exerciseId,
     required this.setIndex,
