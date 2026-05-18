@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/workout_storage.dart';
+import '../models/exercise.dart';
+import '../models/warmup_cooldown.dart';
 import '../models/workout.dart';
 
 class DoingWorkoutScreen extends StatefulWidget {
@@ -198,6 +200,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       out.add(_DoingItemState(
         title: 'Warm-Up',
         subtitle: 'Warm-up',
+        icon: Icons.local_fire_department_rounded,
         kind: _DoingItemKind.warmup,
         exerciseId: null,
         setIndex: null,
@@ -205,6 +208,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         reps: null,
         restSeconds: 0,
         detailLines: workout.warmups.map((w) => w.name).toList(),
+        detailIcons: workout.warmups.map(_iconForWarmupCooldownItem).toList(),
       ));
     }
 
@@ -213,6 +217,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         out.add(_DoingItemState(
           title: '${e.exercise.name} Set 1',
           subtitle: 'Set 1',
+          icon: _iconForExercise(e.exercise.primaryMuscle),
           kind: _DoingItemKind.exercise,
           exerciseId: e.exercise.id,
           setIndex: 0,
@@ -232,6 +237,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         out.add(_DoingItemState(
           title: '${e.exercise.name} Set ${setIndex + 1}',
           subtitle: 'Set ${setIndex + 1}',
+          icon: _iconForExercise(e.exercise.primaryMuscle),
           kind: _DoingItemKind.exercise,
           exerciseId: e.exercise.id,
           setIndex: setIndex,
@@ -246,6 +252,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       out.add(_DoingItemState(
         title: 'Cool-Down',
         subtitle: 'Cool-down',
+        icon: Icons.air_rounded,
         kind: _DoingItemKind.cooldown,
         exerciseId: null,
         setIndex: null,
@@ -253,9 +260,52 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         reps: null,
         restSeconds: 0,
         detailLines: workout.cooldowns.map((c) => c.name).toList(),
+        detailIcons: workout.cooldowns.map(_iconForWarmupCooldownItem).toList(),
       ));
     }
     return out;
+  }
+
+  IconData _iconForExercise(MuscleGroup muscleGroup) {
+    switch (muscleGroup) {
+      case MuscleGroup.chest:
+      case MuscleGroup.shoulders:
+      case MuscleGroup.triceps:
+        return Icons.fitness_center_rounded;
+      case MuscleGroup.back:
+      case MuscleGroup.biceps:
+      case MuscleGroup.forearms:
+        return Icons.sports_gymnastics_rounded;
+      case MuscleGroup.legs:
+      case MuscleGroup.glutes:
+      case MuscleGroup.calves:
+        return Icons.directions_run_rounded;
+      case MuscleGroup.core:
+        return Icons.radio_button_checked_rounded;
+      case MuscleGroup.fullBody:
+        return Icons.accessibility_new_rounded;
+    }
+  }
+
+  IconData _iconForWarmupCooldownItem(WarmupCooldownItem item) {
+    switch (item.category) {
+      case WarmupCooldownCategory.dynamicStretching:
+        return Icons.wb_twilight_rounded;
+      case WarmupCooldownCategory.staticStretching:
+        return Icons.self_improvement_rounded;
+      case WarmupCooldownCategory.foamRolling:
+        return Icons.view_stream_rounded;
+      case WarmupCooldownCategory.mobilityDrills:
+        return Icons.rotate_90_degrees_ccw_rounded;
+      case WarmupCooldownCategory.cardioWarmup:
+        return Icons.favorite_rounded;
+      case WarmupCooldownCategory.activationDrills:
+        return Icons.bolt_rounded;
+      case WarmupCooldownCategory.breathing:
+        return Icons.air_rounded;
+      case WarmupCooldownCategory.balance:
+        return Icons.balance_rounded;
+    }
   }
 
   Map<int, int?> _buildPreviousSessionReps(
@@ -614,6 +664,18 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                           Row(
                                             key: _cardHeaderKeys[index],
                                             children: [
+                                              Icon(
+                                                item.icon,
+                                                size: 18,
+                                                color: item.kind == _DoingItemKind.warmup
+                                                    ? const Color(0xFFFFB54D)
+                                                    : item.kind == _DoingItemKind.cooldown
+                                                        ? const Color(0xFF7FC3E8)
+                                                        : item.done
+                                                            ? const Color(0xFF32DA72)
+                                                            : const Color(0xFF8AB0BF),
+                                              ),
+                                              const SizedBox(width: 8),
                                               Expanded(
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
@@ -698,25 +760,26 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                           ),
                                           if (item.detailLines.isNotEmpty) ...[
                                             const SizedBox(height: 10),
-                                            for (final line in item.detailLines) ...[
+                                            for (int lineIndex = 0;
+                                                lineIndex < item.detailLines.length;
+                                                lineIndex++) ...[
                                               Padding(
                                                 padding: const EdgeInsets.only(bottom: 6),
                                                 child: Row(
                                                   children: [
-                                                    Container(
-                                                      width: 6,
-                                                      height: 6,
-                                                      decoration: BoxDecoration(
-                                                        shape: BoxShape.circle,
-                                                        color: item.kind == _DoingItemKind.warmup
-                                                            ? const Color(0xFFFFC15A)
-                                                            : const Color(0xFF8CCAE8),
-                                                      ),
+                                                    Icon(
+                                                      lineIndex < item.detailIcons.length
+                                                          ? item.detailIcons[lineIndex]
+                                                          : item.icon,
+                                                      size: 15,
+                                                      color: item.kind == _DoingItemKind.warmup
+                                                          ? const Color(0xFFFFC15A)
+                                                          : const Color(0xFF8CCAE8),
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Expanded(
                                                       child: Text(
-                                                        line,
+                                                        item.detailLines[lineIndex],
                                                         style: const TextStyle(
                                                           color: Color(0xFF9AAAB3),
                                                           fontSize: 14,
@@ -1132,7 +1195,9 @@ enum _DoingItemKind { warmup, exercise, cooldown }
 class _DoingItemState {
   final String title;
   final String subtitle;
+  final IconData icon;
   final List<String> detailLines;
+  final List<IconData> detailIcons;
   final _DoingItemKind kind;
   final String? exerciseId;
   final int? setIndex;
@@ -1144,7 +1209,9 @@ class _DoingItemState {
   _DoingItemState({
     required this.title,
     required this.subtitle,
+    required this.icon,
     this.detailLines = const [],
+    this.detailIcons = const [],
     required this.kind,
     required this.exerciseId,
     required this.setIndex,
