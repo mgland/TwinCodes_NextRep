@@ -651,9 +651,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                 colors: [Color(0xFF18272C), Color(0xFF1B2C31)],
                                               ),
                                         border: Border.all(
-                                          color: item.done
-                                              ? const Color(0xFF27D16D)
-                                              : isActive
+                                          color: isActive
                                                   ? const Color(0xFF2A9D8F)
                                                   : const Color(0xFF24373D),
                                         ),
@@ -671,9 +669,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                     ? const Color(0xFFFFB54D)
                                                     : item.kind == _DoingItemKind.cooldown
                                                         ? const Color(0xFF7FC3E8)
-                                                        : item.done
-                                                            ? const Color(0xFF32DA72)
-                                                            : const Color(0xFF8AB0BF),
+                                                    : const Color(0xFF8AB0BF),
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
@@ -685,7 +681,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                         item.title,
                                                         style: TextStyle(
                                                           color: item.done
-                                                              ? const Color(0xFF32DA72)
+                                                              ? const Color(0xFF7FA68E)
                                                               : Colors.white,
                                                           fontSize: 15,
                                                           fontWeight: FontWeight.w700,
