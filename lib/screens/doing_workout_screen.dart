@@ -756,14 +756,13 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                     child: AnimatedContainer(
                                       key: _cardKeys[index],
                                       duration: const Duration(milliseconds: 180),
-                                      padding: item.kind == _DoingItemKind.exercise && !isActive
+                                      padding: item.kind == _DoingItemKind.exercise
                                           ? const EdgeInsets.fromLTRB(12, 6, 8, 6)
                                           : const EdgeInsets.fromLTRB(12, 10, 8, 10),
                                       decoration: BoxDecoration(
-                                        borderRadius:
-                                            item.kind == _DoingItemKind.exercise && !isActive
-                                                ? BorderRadius.circular(999)
-                                                : BorderRadius.circular(14),
+                                        borderRadius: item.kind == _DoingItemKind.exercise
+                                            ? BorderRadius.circular(999)
+                                            : BorderRadius.circular(14),
                                         gradient: isActive
                                             ? const LinearGradient(
                                                 colors: [Color(0xFF1D3137), Color(0xFF233B40)],
@@ -886,8 +885,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                 onTap: () => _toggleDone(index),
                                                 child: AnimatedContainer(
                                                   duration: const Duration(milliseconds: 150),
-                                                  width: 26,
-                                                  height: 26,
+                                                  width: 22,
+                                                  height: 22,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     color: item.done
@@ -897,14 +896,14 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                       color: item.done
                                                           ? const Color(0xFF28D66D)
                                                           : const Color(0xFF2DD06F),
-                                                      width: 2,
+                                                      width: item.done ? 1.8 : 1.2,
                                                     ),
                                                   ),
                                                   child: item.done
                                                       ? const Icon(
                                                           Icons.check,
                                                           color: Color(0xFF042111),
-                                                          size: 16,
+                                                          size: 14,
                                                         )
                                                       : null,
                                                 ),
