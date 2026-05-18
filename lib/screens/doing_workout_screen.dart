@@ -6,6 +6,7 @@ import '../data/workout_storage.dart';
 import '../models/exercise.dart';
 import '../models/warmup_cooldown.dart';
 import '../models/workout.dart';
+import 'home_screen.dart';
 
 class DoingWorkoutScreen extends StatefulWidget {
   final Workout workout;
@@ -59,6 +60,26 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _scrollController.addListener(_scheduleRailMeasurement);
     _scrollController.addListener(_updateScrollOffset);
     _topChipScrollController.addListener(_updateTopChipScrollMetrics);
+    _startTicker();
+    _scheduleRailMeasurement();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateTopChipScrollMetrics();
+    });
+  }
+
+  @override
+  void dispose() {
+    _stopTicker();
+    _scrollController.removeListener(_scheduleRailMeasurement);
+    _scrollController.removeListener(_updateScrollOffset);
+    _topChipScrollController.removeListener(_updateTopChipScrollMetrics);
+    _scrollController.dispose();
+    _topChipScrollController.dispose();
+    super.dispose();
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
@@ -71,21 +92,11 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         }
       });
     });
-    _scheduleRailMeasurement();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateTopChipScrollMetrics();
-    });
   }
 
-  @override
-  void dispose() {
+  void _stopTicker() {
     _ticker?.cancel();
-    _scrollController.removeListener(_scheduleRailMeasurement);
-    _scrollController.removeListener(_updateScrollOffset);
-    _topChipScrollController.removeListener(_updateTopChipScrollMetrics);
-    _scrollController.dispose();
-    _topChipScrollController.dispose();
-    super.dispose();
+    _ticker = null;
   }
 
   void _updateScrollOffset() {
@@ -629,6 +640,148 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         item.goalReps = result;
       }
     });
+  }
+
+  Future<void> _onFinishWorkoutTap() async {
+    _stopTicker();
+
+    final repsByExerciseId = <String, List<int>>{};
+    final doneSetCountByExerciseId = <String, int>{};
+    for (final entry in widget.workout.exercises) {
+      final setCount = entry.sets.isEmpty ? 1 : entry.sets.length;
+      repsByExerciseId[entry.exercise.id] = List<int>.filled(setCount, 0);
+      doneSetCountByExerciseId[entry.exercise.id] = 0;
+    }
+    for (final item in _items) {
+      if (item.kind != _DoingItemKind.exercise ||
+          item.exerciseId == null ||
+          item.setIndex == null ||
+          !item.done) {
+        continue;
+      }
+      final repsList = repsByExerciseId[item.exerciseId!];
+      if (repsList == null) continue;
+      if (item.setIndex! < 0 || item.setIndex! >= repsList.length) continue;
+      repsList[item.setIndex!] = item.reps ?? item.goalReps ?? 0;
+      doneSetCountByExerciseId[item.exerciseId!] =
+          (doneSetCountByExerciseId[item.exerciseId!] ?? 0) + 1;
+    }
+    final finishedExerciseSummaryLines = <String>[];
+    for (final entry in widget.workout.exercises) {
+      final exerciseId = entry.exercise.id;
+      final doneCount = doneSetCountByExerciseId[exerciseId] ?? 0;
+      if (doneCount <= 0) continue;
+      final repsList = repsByExerciseId[exerciseId] ?? const <int>[];
+      final repsText = repsList.join(', ');
+      finishedExerciseSummaryLines.add('- ${entry.exercise.name} $repsText reps');
+    }
+
+    final unfinishedExerciseOrCooldown = _items
+        .where((i) =>
+            !i.done &&
+            (i.kind == _DoingItemKind.exercise || i.kind == _DoingItemKind.cooldown))
+        .toList();
+
+    final action = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A2A2F),
+          title: const Text(
+            'Workout Complete',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Congratulations! Nice work today.',
+                  style: TextStyle(color: Color(0xFFDCE5EA), fontSize: 14),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Finished Exercises (${finishedExerciseSummaryLines.length})',
+                  style: const TextStyle(
+                    color: Color(0xFF9CC8B0),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                if (finishedExerciseSummaryLines.isEmpty)
+                  const Text(
+                    'No finished exercise sets yet.',
+                    style: TextStyle(color: Color(0xFF8A9BA8), fontSize: 13),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 180),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final line in finishedExerciseSummaryLines)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                line,
+                                style: const TextStyle(
+                                  color: Color(0xFFDCE5EA),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (unfinishedExerciseOrCooldown.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'You still have ${unfinishedExerciseOrCooldown.length} unfinished exercise/cooldown item(s).',
+                    style: const TextStyle(
+                      color: Color(0xFFFFC15A),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            if (unfinishedExerciseOrCooldown.isNotEmpty)
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF7A6632),
+                  foregroundColor: const Color(0xFFFFE3A8),
+                ),
+                onPressed: () => Navigator.of(dialogContext).pop('back'),
+                child: const Text('Go Back to Exercise'),
+              ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop('close'),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (action == 'back') {
+      _startTicker();
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
   }
 
   String _fmtClock(int seconds) {
@@ -1180,6 +1333,27 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _onFinishWorkoutTap,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2A6B52),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Finish Workout',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
           ),
         ],
