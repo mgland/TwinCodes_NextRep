@@ -386,6 +386,122 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _scheduleRailMeasurement();
   }
 
+  Future<void> _showRepsInputDialog(int index, int? prevReps) async {
+    final item = _items[index];
+    if (item.kind != _DoingItemKind.exercise) return;
+
+    final initialValue = item.reps ?? item.goalReps ?? 0;
+    final controller = TextEditingController(
+      text: initialValue > 0 ? initialValue.toString() : '',
+    );
+
+    final result = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setLocalState) {
+            int currentValue() => int.tryParse(controller.text.trim()) ?? 0;
+
+            void setValue(int value) {
+              final normalized = value < 0 ? 0 : value;
+              controller.text = normalized == 0 ? '' : normalized.toString();
+              controller.selection = TextSelection.fromPosition(
+                TextPosition(offset: controller.text.length),
+              );
+              setLocalState(() {});
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1A2A2F),
+              title: Text(
+                item.done ? 'Edit Reps' : 'Edit Goal',
+                style: const TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Enter value',
+                        hintStyle: const TextStyle(color: Color(0xFF8A9BA8)),
+                        filled: true,
+                        fillColor: const Color(0xFF112026),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: prevReps == null ? null : () => setValue(prevReps),
+                            child: const Text('Same as Prev'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => setValue(currentValue() - 1),
+                            child: const Text('Decrease'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => setValue(currentValue() + 1),
+                            child: const Text('Increase'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final parsed = int.tryParse(controller.text.trim()) ?? 0;
+                    Navigator.of(dialogContext).pop(parsed < 0 ? 0 : parsed);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+
+    if (!mounted || result == null) return;
+
+    setState(() {
+      item.reps = result;
+      if (!item.done) {
+        item.goalReps = result;
+      }
+    });
+  }
+
   String _fmtClock(int seconds) {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;
@@ -729,6 +845,42 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                     fontSize: 12,
                                                   ),
                                                 ),
+                                              if (item.kind == _DoingItemKind.exercise) ...[
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  item.done ? 'Reps:' : 'Goal:',
+                                                  style: const TextStyle(
+                                                    color: Color(0xFFD1D7DC),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                GestureDetector(
+                                                  onTap: () =>
+                                                      _showRepsInputDialog(index, prevReps),
+                                                  child: Container(
+                                                    width: 42,
+                                                    height: 24,
+                                                    alignment: Alignment.center,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      color: const Color(0xFF152126),
+                                                      border: Border.all(
+                                                        color: const Color(0xFF22343B),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      item.reps?.toString() ?? '--',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                               const SizedBox(width: 8),
                                               GestureDetector(
                                                 onTap: () => _toggleDone(index),
@@ -804,64 +956,6 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                                 ),
                                               ),
                                             ],
-                                          ],
-                                          if (isActive &&
-                                              item.kind == _DoingItemKind.exercise) ...[
-                                            const SizedBox(height: 10),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  '${item.done ? 'Reps' : 'Goal'}:',
-                                                  style: const TextStyle(
-                                                    color: Color(0xFFD1D7DC),
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  width: 56,
-                                                  height: 30,
-                                                  alignment: Alignment.center,
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    color: const Color(0xFF152126),
-                                                  ),
-                                                  child: Text(
-                                                    item.reps?.toString() ?? '',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                _MiniCircleButton(
-                                                  label: '=',
-                                                  onTap: () => setState(() {
-                                                    item.reps = prevReps ?? item.goalReps;
-                                                  }),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                _MiniCircleButton(
-                                                  label: '+',
-                                                  color: const Color(0xFF2FE26F),
-                                                  onTap: () => setState(() {
-                                                    item.reps = (item.reps ?? 0) + 1;
-                                                  }),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                _MiniCircleButton(
-                                                  label: '-',
-                                                  color: const Color(0xFFE45252),
-                                                  onTap: () => setState(() {
-                                                    final current = item.reps;
-                                                    if (current == null) return;
-                                                    item.reps = current > 0 ? current - 1 : 0;
-                                                  }),
-                                                ),
-                                              ],
-                                            ),
                                           ],
                                         ],
                                       ),
@@ -1016,45 +1110,6 @@ class _ExerciseProgressChip extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniCircleButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
-
-  const _MiniCircleButton({
-    required this.label,
-    required this.onTap,
-    this.color = const Color(0xFFB9C1C7),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFF112026),
-          border: Border.all(color: const Color(0xFF203238)),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              height: 1,
-            ),
-          ),
-        ),
       ),
     );
   }
