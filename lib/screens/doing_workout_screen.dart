@@ -272,17 +272,6 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     return out;
   }
 
-  List<_DoingItemState> get _exerciseItems =>
-      _items.where((i) => i.kind == _DoingItemKind.exercise).toList();
-
-  int get _currentExercisePosition {
-    final exercises = _exerciseItems;
-    if (exercises.isEmpty) return 0;
-    final firstNotDone = exercises.indexWhere((e) => !e.done);
-    if (firstNotDone == -1) return exercises.length;
-    return firstNotDone + 1;
-  }
-
   void _toggleDone(int index) {
     setState(() {
       final item = _items[index];
@@ -322,9 +311,29 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final exercises = _exerciseItems;
-    final doneExerciseCount = exercises.where((e) => e.done).length;
-    final currentExerciseIndex = exercises.indexWhere((e) => !e.done);
+    final topExercises = widget.workout.exercises;
+    final doneSetsByExercise = <String, int>{};
+    for (final item in _items) {
+      if (item.kind != _DoingItemKind.exercise || item.exerciseId == null) continue;
+      if (!item.done) continue;
+      doneSetsByExercise[item.exerciseId!] =
+          (doneSetsByExercise[item.exerciseId!] ?? 0) + 1;
+    }
+
+    int currentExerciseIndex = -1;
+    for (int i = 0; i < topExercises.length; i++) {
+      final ex = topExercises[i];
+      final totalSets = ex.sets.isEmpty ? 1 : ex.sets.length;
+      final doneSets = (doneSetsByExercise[ex.exercise.id] ?? 0)
+          .clamp(0, totalSets);
+      if (doneSets < totalSets) {
+        currentExerciseIndex = i;
+        break;
+      }
+    }
+    final currentExercisePosition = currentExerciseIndex == -1
+        ? topExercises.length
+        : currentExerciseIndex + 1;
     final now = DateTime.now();
 
     return Scaffold(
@@ -358,7 +367,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   Row(
                     children: [
                       Text(
-                        '${_currentExercisePosition}/${exercises.length} Exercises',
+                        '$currentExercisePosition/${topExercises.length} Exercises',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -388,14 +397,22 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          for (int i = 0; i < exercises.length; i++) ...[
-                            _ExerciseProgressChip(
-                              label: '${i + 1}. ${exercises[i].title}',
-                              progress: i < doneExerciseCount
-                                  ? 1
-                                  : (i == currentExerciseIndex ? 0.55 : 0),
-                              isActive: i == currentExerciseIndex,
-                            ),
+                          for (int i = 0; i < topExercises.length; i++) ...[
+                            (() {
+                              final ex = topExercises[i];
+                              final totalSets = ex.sets.isEmpty ? 1 : ex.sets.length;
+                              final doneSets =
+                                  (doneSetsByExercise[ex.exercise.id] ?? 0)
+                                      .clamp(0, totalSets);
+                              final progress = totalSets == 0
+                                  ? 0.0
+                                  : doneSets / totalSets;
+                              return _ExerciseProgressChip(
+                                label: '${i + 1}. ${ex.exercise.name}',
+                                progress: progress,
+                                isActive: i == currentExerciseIndex,
+                              );
+                            })(),
                             const SizedBox(width: 6),
                           ]
                         ],
