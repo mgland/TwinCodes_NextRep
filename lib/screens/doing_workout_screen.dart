@@ -26,6 +26,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   int? _activeIndex;
   late final Map<int, int?> _previousSessionRepsByItemIndex;
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _topChipScrollController = ScrollController();
   final GlobalKey _railLayerKey = GlobalKey();
   late final List<GlobalKey> _railAnchorKeys;
   late final List<GlobalKey> _cardKeys;
@@ -33,6 +34,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   List<_RailNode> _railNodes = const [];
   bool _measureScheduled = false;
   double _scrollOffset = 0.0;
+  double _topChipScrollOffset = 0.0;
+  double _topChipMaxScrollExtent = 0.0;
 
   @override
   void initState() {
@@ -53,6 +56,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _activeIndex = _items.isEmpty ? null : 0;
     _scrollController.addListener(_scheduleRailMeasurement);
     _scrollController.addListener(_updateScrollOffset);
+    _topChipScrollController.addListener(_updateTopChipScrollMetrics);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
@@ -66,6 +70,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       });
     });
     _scheduleRailMeasurement();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateTopChipScrollMetrics();
+    });
   }
 
   @override
@@ -73,7 +80,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _ticker?.cancel();
     _scrollController.removeListener(_scheduleRailMeasurement);
     _scrollController.removeListener(_updateScrollOffset);
+    _topChipScrollController.removeListener(_updateTopChipScrollMetrics);
     _scrollController.dispose();
+    _topChipScrollController.dispose();
     super.dispose();
   }
 
@@ -82,6 +91,22 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     final offset = _scrollController.hasClients ? _scrollController.offset.clamp(0.0, double.infinity) : 0.0;
     if ((offset - _scrollOffset).abs() > 0.5) {
       setState(() => _scrollOffset = offset);
+    }
+  }
+
+  void _updateTopChipScrollMetrics() {
+    if (!mounted) return;
+    final position = _topChipScrollController.hasClients
+        ? _topChipScrollController.position
+        : null;
+    final offset = position?.pixels.clamp(0.0, double.infinity) ?? 0.0;
+    final maxExtent = position?.maxScrollExtent.clamp(0.0, double.infinity) ?? 0.0;
+    if ((offset - _topChipScrollOffset).abs() > 0.5 ||
+        (maxExtent - _topChipMaxScrollExtent).abs() > 0.5) {
+      setState(() {
+        _topChipScrollOffset = offset;
+        _topChipMaxScrollExtent = maxExtent;
+      });
     }
   }
 
@@ -375,6 +400,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         ? topChips.length
         : currentChipIndex + 1;
     final now = DateTime.now();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateTopChipScrollMetrics();
+    });
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B1E),
@@ -433,21 +461,77 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 28,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (int i = 0; i < topChips.length; i++) ...[
-                            _ExerciseProgressChip(
-                              label: topChips[i].label,
-                              progress: topChips[i].progress,
-                              fillColor: topChips[i].fillColor,
-                              isActive: i == currentChipIndex,
+                    child: Stack(
+                      children: [
+                        SingleChildScrollView(
+                          controller: _topChipScrollController,
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (int i = 0; i < topChips.length; i++) ...[
+                                _ExerciseProgressChip(
+                                  label: topChips[i].label,
+                                  progress: topChips[i].progress,
+                                  fillColor: topChips[i].fillColor,
+                                  isActive: i == currentChipIndex,
+                                ),
+                                const SizedBox(width: 6),
+                              ]
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: (_topChipScrollOffset / 7.0).clamp(0.0, 1.0),
+                              child: Container(
+                                width: 7,
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xFF111B1F),
+                                      Color(0xCC111B1F),
+                                      Color(0x00111B1F),
+                                    ],
+                                    stops: [0.0, 0.55, 1.0],
+                                  ),
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 6),
-                          ]
-                        ],
-                      ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity: ((_topChipMaxScrollExtent - _topChipScrollOffset) / 7.0)
+                                  .clamp(0.0, 1.0),
+                              child: Container(
+                                width: 7,
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.centerRight,
+                                    end: Alignment.centerLeft,
+                                    colors: [
+                                      Color(0xFF1A2A2F),
+                                      Color(0xCC1A2A2F),
+                                      Color(0x001A2A2F),
+                                    ],
+                                    stops: [0.0, 0.55, 1.0],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
