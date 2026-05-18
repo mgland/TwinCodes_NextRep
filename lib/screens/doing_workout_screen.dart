@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/workout_storage.dart';
 import '../models/workout.dart';
 
 class DoingWorkoutScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   int _restSecondsRemaining = 0;
   int? _restingItemIndex;
   int? _activeIndex;
+  late final Map<int, int?> _previousSessionRepsByItemIndex;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _railLayerKey = GlobalKey();
   late final List<GlobalKey> _railAnchorKeys;
@@ -35,6 +37,15 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   void initState() {
     super.initState();
     _items = _buildItems(widget.workout);
+    _previousSessionRepsByItemIndex =
+      _buildPreviousSessionReps(widget.workout, _items);
+    for (int i = 0; i < _items.length; i++) {
+      final item = _items[i];
+      if (item.kind != _DoingItemKind.exercise) continue;
+      final prev = _previousSessionRepsByItemIndex[i];
+      item.goalReps = prev;
+      item.reps = prev;
+    }
     _railAnchorKeys = List.generate(_items.length, (_) => GlobalKey());
     _cardKeys = List.generate(_items.length, (_) => GlobalKey());
     _cardHeaderKeys = List.generate(_items.length, (_) => GlobalKey());
@@ -152,8 +163,10 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         title: w.name,
         subtitle: 'Warm-up',
         kind: _DoingItemKind.warmup,
-        goalReps: 1,
-        reps: 1,
+        exerciseId: null,
+        setIndex: null,
+        goalReps: null,
+        reps: null,
         restSeconds: 30,
       ));
     }
@@ -164,8 +177,10 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
           title: '${e.exercise.name} Set 1',
           subtitle: 'Set 1',
           kind: _DoingItemKind.exercise,
-          goalReps: 8,
-          reps: 8,
+          exerciseId: e.exercise.id,
+          setIndex: 0,
+          goalReps: null,
+          reps: null,
           restSeconds: e.restAfterExerciseSeconds ?? 90,
         ));
         continue;
@@ -177,14 +192,14 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         final setRest = isLastSet
             ? (e.restAfterExerciseSeconds ?? set.restSeconds)
             : set.restSeconds;
-        final reps = set.reps ?? 8;
-
         out.add(_DoingItemState(
           title: '${e.exercise.name} Set ${setIndex + 1}',
           subtitle: 'Set ${setIndex + 1}',
           kind: _DoingItemKind.exercise,
-          goalReps: reps,
-          reps: reps,
+          exerciseId: e.exercise.id,
+          setIndex: setIndex,
+          goalReps: null,
+          reps: null,
           restSeconds: setRest,
         ));
       }
@@ -195,11 +210,65 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         title: c.name,
         subtitle: 'Cool-down',
         kind: _DoingItemKind.cooldown,
-        goalReps: 1,
-        reps: 1,
+        exerciseId: null,
+        setIndex: null,
+        goalReps: null,
+        reps: null,
         restSeconds: 20,
       ));
     }
+    return out;
+  }
+
+  Map<int, int?> _buildPreviousSessionReps(
+    Workout current,
+    List<_DoingItemState> items,
+  ) {
+    final history = WorkoutStorage.instance.getAllWorkouts();
+    final out = <int, int?>{};
+
+    bool isSameWorkout(Workout w) {
+      if (current.storageKey != null && w.storageKey != null) {
+        return current.storageKey == w.storageKey;
+      }
+      return w.name == current.name &&
+          w.createdAt.millisecondsSinceEpoch ==
+              current.createdAt.millisecondsSinceEpoch;
+    }
+
+    for (int itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      final item = items[itemIndex];
+      if (item.kind != _DoingItemKind.exercise ||
+          item.exerciseId == null ||
+          item.setIndex == null) {
+        out[itemIndex] = null;
+        continue;
+      }
+
+      int? prevReps;
+      for (final w in history) {
+        if (isSameWorkout(w)) continue;
+
+        WorkoutExerciseEntry? match;
+        for (final entry in w.exercises) {
+          if (entry.exercise.id == item.exerciseId) {
+            match = entry;
+            break;
+          }
+        }
+        if (match == null) continue;
+        if (item.setIndex! >= match.sets.length) continue;
+
+        final reps = match.sets[item.setIndex!].reps;
+        if (reps != null) {
+          prevReps = reps;
+          break;
+        }
+      }
+
+      out[itemIndex] = prevReps;
+    }
+
     return out;
   }
 
@@ -214,20 +283,12 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     return firstNotDone + 1;
   }
 
-  int? _previousReps(int index) {
-    for (int i = index - 1; i >= 0; i--) {
-      if (_items[i].done) return _items[i].reps;
-    }
-    if (index > 0) return _items[index - 1].reps;
-    return null;
-  }
-
   void _toggleDone(int index) {
     setState(() {
       final item = _items[index];
       item.done = !item.done;
       if (item.done) {
-        if (item.reps <= 0) item.reps = item.goalReps;
+        if ((item.reps ?? 0) <= 0) item.reps = item.goalReps;
         _restSecondsRemaining = item.restSeconds;
         _restingItemIndex = item.restSeconds > 0 ? index : null;
         final next = _items.indexWhere((it) => !it.done, index + 1);
@@ -363,7 +424,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   itemBuilder: (context, index) {
                 final item = _items[index];
                 final isActive = index == _activeIndex;
-                final prevReps = _previousReps(index);
+                final prevReps = _previousSessionRepsByItemIndex[index];
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -423,7 +484,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                           ),
                                         ),
                                       ),
-                                      if ((prevReps ?? 0) > 0)
+                                      if (prevReps != null)
                                         Text(
                                           'Prev: $prevReps',
                                           style: const TextStyle(
@@ -487,7 +548,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                             color: const Color(0xFF152126),
                                           ),
                                           child: Text(
-                                            '${item.reps}',
+                                              item.reps?.toString() ?? '',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 20,
@@ -506,14 +567,18 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                         _MiniCircleButton(
                                           label: '+',
                                           color: const Color(0xFF2FE26F),
-                                          onTap: () => setState(() => item.reps += 1),
+                                          onTap: () => setState(() {
+                                            item.reps = (item.reps ?? 0) + 1;
+                                          }),
                                         ),
                                         const SizedBox(width: 6),
                                         _MiniCircleButton(
                                           label: '-',
                                           color: const Color(0xFFE45252),
                                           onTap: () => setState(() {
-                                            item.reps = item.reps > 0 ? item.reps - 1 : 0;
+                                            final current = item.reps;
+                                            if (current == null) return;
+                                            item.reps = current > 0 ? current - 1 : 0;
                                           }),
                                         ),
                                       ],
@@ -789,15 +854,19 @@ class _DoingItemState {
   final String title;
   final String subtitle;
   final _DoingItemKind kind;
-  final int goalReps;
+  final String? exerciseId;
+  final int? setIndex;
+  int? goalReps;
   final int restSeconds;
-  int reps;
+  int? reps;
   bool done = false;
 
   _DoingItemState({
     required this.title,
     required this.subtitle,
     required this.kind,
+    required this.exerciseId,
+    required this.setIndex,
     required this.goalReps,
     required this.reps,
     required this.restSeconds,
