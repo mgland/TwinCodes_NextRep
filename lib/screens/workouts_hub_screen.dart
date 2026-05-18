@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/workout_storage.dart';
 import '../models/workout.dart';
 import 'create_workout_screen.dart';
+import 'doing_workout_screen.dart';
 import 'workout_type_selection_screen.dart';
 
 class WorkoutsHubScreen extends StatefulWidget {
@@ -43,6 +44,16 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
           initialWorkout: workout,
           editingStorageKey: workout.storageKey,
         ),
+      ),
+    );
+    if (!mounted) return;
+    _loadWorkouts();
+  }
+
+  Future<void> _goStartWorkout(Workout workout) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DoingWorkoutScreen(workout: workout),
       ),
     );
     if (!mounted) return;
@@ -172,6 +183,15 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _goStartWorkout(workout),
+                icon: const Icon(Icons.play_circle_fill_rounded, size: 16),
+                label: const Text('Start'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF2A9D8F),
+                  visualDensity: VisualDensity.compact,
                 ),
               ),
               TextButton.icon(

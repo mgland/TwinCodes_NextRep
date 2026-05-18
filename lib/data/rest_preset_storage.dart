@@ -13,7 +13,7 @@ class RestPresetStorage {
   static String get _boxName => '${AppConstants.hiveId}-rest-presets';
   static const _key = 'presets';
   static const _lastUsedKey = 'lastUsed';
-  static const List<int> _defaultPresets = [30, 60, 90, 120, 180, 300];
+  static const List<int> _defaultPresets = [0, 30, 60, 90, 120, 180, 300];
 
   Box<dynamic>? _box;
 
@@ -32,7 +32,12 @@ class RestPresetStorage {
   List<int> getPresets() {
     final raw = _box?.get(_key);
     if (raw == null) return List.of(_defaultPresets);
-    return (raw as List).map((e) => (e as num).toInt()).toList();
+    final presets = (raw as List).map((e) => (e as num).toInt()).toSet().toList();
+    if (!presets.contains(0)) {
+      presets.add(0);
+      presets.sort();
+    }
+    return presets;
   }
 
   Future<void> addPreset(int seconds) async {

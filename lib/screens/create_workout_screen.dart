@@ -24,11 +24,17 @@ const _dimmer = Color(0xFF566A72);
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _fmtSeconds(int s) {
+  if (s <= 0) return '0s';
   final m = s ~/ 60;
   final sec = s % 60;
   if (m == 0) return '${s}s';
   if (sec == 0) return '${m}m';
   return '${m}m ${sec}s';
+}
+
+String _fmtTimeInputSeconds(int s) {
+  if (s <= 0) return 'N/A';
+  return _fmtSeconds(s);
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -994,7 +1000,7 @@ class _SetRowState extends State<_SetRow> {
       );
 
   Widget _restCell() => _TappableCell(
-        label: _fmtSeconds(widget.set_.restSeconds),
+        label: _fmtTimeInputSeconds(widget.set_.restSeconds),
         onTap: () => _pickDuration(
           initial: widget.set_.restSeconds,
           title: 'Rest After Set',
@@ -1199,6 +1205,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   }
 
   String _fmtPreset(int s) {
+    if (s <= 0) return '0s';
     if (s < 60) return '${s}s';
     final m = s ~/ 60;
     final rem = s % 60;
@@ -1564,7 +1571,7 @@ class _RestPicker extends StatelessWidget {
           children: [
             const Icon(Icons.timer, color: _accent, size: 14),
             const SizedBox(width: 4),
-            Text(_fmtSeconds(value), style: const TextStyle(color: Colors.white, fontSize: 13)),
+            Text(_fmtTimeInputSeconds(value), style: const TextStyle(color: Colors.white, fontSize: 13)),
           ],
         ),
       ),
