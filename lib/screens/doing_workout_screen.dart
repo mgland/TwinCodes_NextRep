@@ -320,20 +320,49 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
           (doneSetsByExercise[item.exerciseId!] ?? 0) + 1;
     }
 
-    int currentExerciseIndex = -1;
+    final warmupTotal = _items.where((i) => i.kind == _DoingItemKind.warmup).length;
+    final warmupDone = _items.where((i) => i.kind == _DoingItemKind.warmup && i.done).length;
+    final cooldownTotal = _items.where((i) => i.kind == _DoingItemKind.cooldown).length;
+    final cooldownDone = _items.where((i) => i.kind == _DoingItemKind.cooldown && i.done).length;
+
+    final topChips = <_TopChipData>[];
+    if (warmupTotal > 0) {
+      topChips.add(_TopChipData(
+        label: 'Warm-Ups',
+        progress: warmupDone / warmupTotal,
+        fillColor: const Color(0xFF9A744C),
+      ));
+    }
+
     for (int i = 0; i < topExercises.length; i++) {
       final ex = topExercises[i];
       final totalSets = ex.sets.isEmpty ? 1 : ex.sets.length;
-      final doneSets = (doneSetsByExercise[ex.exercise.id] ?? 0)
-          .clamp(0, totalSets);
-      if (doneSets < totalSets) {
-        currentExerciseIndex = i;
+      final doneSets = (doneSetsByExercise[ex.exercise.id] ?? 0).clamp(0, totalSets);
+      topChips.add(_TopChipData(
+        label: '${i + 1}. ${ex.exercise.name}',
+        progress: totalSets == 0 ? 0 : doneSets / totalSets,
+        fillColor: const Color(0xFF2A6B52),
+      ));
+    }
+
+    if (cooldownTotal > 0) {
+      topChips.add(_TopChipData(
+        label: 'Cool-Down',
+        progress: cooldownDone / cooldownTotal,
+        fillColor: const Color(0xFF4F7E9A),
+      ));
+    }
+
+    int currentChipIndex = -1;
+    for (int i = 0; i < topChips.length; i++) {
+      if (topChips[i].progress < 1) {
+        currentChipIndex = i;
         break;
       }
     }
-    final currentExercisePosition = currentExerciseIndex == -1
-        ? topExercises.length
-        : currentExerciseIndex + 1;
+    final currentChipPosition = currentChipIndex == -1
+        ? topChips.length
+        : currentChipIndex + 1;
     final now = DateTime.now();
 
     return Scaffold(
@@ -367,7 +396,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   Row(
                     children: [
                       Text(
-                        '$currentExercisePosition/${topExercises.length} Exercises',
+                        '$currentChipPosition/${topChips.length} Items',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 13,
@@ -397,22 +426,13 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          for (int i = 0; i < topExercises.length; i++) ...[
-                            (() {
-                              final ex = topExercises[i];
-                              final totalSets = ex.sets.isEmpty ? 1 : ex.sets.length;
-                              final doneSets =
-                                  (doneSetsByExercise[ex.exercise.id] ?? 0)
-                                      .clamp(0, totalSets);
-                              final progress = totalSets == 0
-                                  ? 0.0
-                                  : doneSets / totalSets;
-                              return _ExerciseProgressChip(
-                                label: '${i + 1}. ${ex.exercise.name}',
-                                progress: progress,
-                                isActive: i == currentExerciseIndex,
-                              );
-                            })(),
+                          for (int i = 0; i < topChips.length; i++) ...[
+                            _ExerciseProgressChip(
+                              label: topChips[i].label,
+                              progress: topChips[i].progress,
+                              fillColor: topChips[i].fillColor,
+                              isActive: i == currentChipIndex,
+                            ),
                             const SizedBox(width: 6),
                           ]
                         ],
@@ -654,11 +674,13 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
 class _ExerciseProgressChip extends StatelessWidget {
   final String label;
   final double progress;
+  final Color fillColor;
   final bool isActive;
 
   const _ExerciseProgressChip({
     required this.label,
     required this.progress,
+    required this.fillColor,
     required this.isActive,
   });
 
@@ -683,7 +705,7 @@ class _ExerciseProgressChip extends StatelessWidget {
             child: FractionallySizedBox(
               widthFactor: progress.clamp(0, 1),
               alignment: Alignment.centerLeft,
-              child: Container(color: isActive ? const Color(0xFF28D66D) : const Color(0xFF1F8E58)),
+              child: Container(color: fillColor),
             ),
           ),
           Positioned.fill(
@@ -741,6 +763,18 @@ class _MiniCircleButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TopChipData {
+  final String label;
+  final double progress;
+  final Color fillColor;
+
+  const _TopChipData({
+    required this.label,
+    required this.progress,
+    required this.fillColor,
+  });
 }
 
 class _RailNode {
