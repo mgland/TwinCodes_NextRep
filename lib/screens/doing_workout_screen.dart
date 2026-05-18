@@ -215,8 +215,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     for (final e in workout.exercises) {
       if (e.sets.isEmpty) {
         out.add(_DoingItemState(
-          title: '${e.exercise.name} Set 1',
-          subtitle: 'Set 1',
+          title: '${e.exercise.name} 1',
+          subtitle: '',
           icon: _iconForExercise(e.exercise.primaryMuscle),
           kind: _DoingItemKind.exercise,
           exerciseId: e.exercise.id,
@@ -235,8 +235,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
             ? (e.restAfterExerciseSeconds ?? set.restSeconds)
             : set.restSeconds;
         out.add(_DoingItemState(
-          title: '${e.exercise.name} Set ${setIndex + 1}',
-          subtitle: 'Set ${setIndex + 1}',
+          title: '${e.exercise.name} ${setIndex + 1}',
+          subtitle: '',
           icon: _iconForExercise(e.exercise.primaryMuscle),
           kind: _DoingItemKind.exercise,
           exerciseId: e.exercise.id,
@@ -640,9 +640,14 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                     child: AnimatedContainer(
                                       key: _cardKeys[index],
                                       duration: const Duration(milliseconds: 180),
-                                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                                      padding: item.kind == _DoingItemKind.exercise && !isActive
+                                          ? const EdgeInsets.fromLTRB(12, 6, 8, 6)
+                                          : const EdgeInsets.fromLTRB(12, 10, 8, 10),
                                       decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
+                                        borderRadius:
+                                            item.kind == _DoingItemKind.exercise && !isActive
+                                                ? BorderRadius.circular(999)
+                                                : BorderRadius.circular(14),
                                         gradient: isActive
                                             ? const LinearGradient(
                                                 colors: [Color(0xFF1D3137), Color(0xFF233B40)],
@@ -788,14 +793,17 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                               ),
                                             ],
                                           ] else ...[
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              item.subtitle,
-                                              style: const TextStyle(
-                                                color: Color(0xFF8A9BA8),
-                                                fontSize: 12,
+                                            if (item.subtitle.isNotEmpty &&
+                                                item.kind != _DoingItemKind.exercise) ...[
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                item.subtitle,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF8A9BA8),
+                                                  fontSize: 12,
+                                                ),
                                               ),
-                                            ),
+                                            ],
                                           ],
                                           if (isActive &&
                                               item.kind == _DoingItemKind.exercise) ...[
