@@ -761,7 +761,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   foregroundColor: const Color(0xFFFFE3A8),
                 ),
                 onPressed: () => Navigator.of(dialogContext).pop('back'),
-                child: const Text('Go Back to Exercise'),
+                child: const Text('Go Back'),
               ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop('close'),
@@ -1010,8 +1010,32 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                 ListView.builder(
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-                  itemCount: _items.length,
+                  itemCount: _items.length + 1,
                   itemBuilder: (context, index) {
+                    if (index == _items.length) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(30, 8, 0, 12),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _onFinishWorkoutTap,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF2A6B52),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Finish Workout',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
                     final item = _items[index];
                     final isActive = index == _activeIndex;
                     final prevReps = _previousSessionRepsByItemIndex[index];
@@ -1333,27 +1357,6 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _onFinishWorkoutTap,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2A6B52),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Finish Workout',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
             ),
           ),
         ],
