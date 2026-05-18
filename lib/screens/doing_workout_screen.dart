@@ -22,12 +22,23 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   int _elapsedSeconds = 0;
   int _restSecondsRemaining = 0;
   int? _activeIndex;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _railLayerKey = GlobalKey();
+  late final List<GlobalKey> _railAnchorKeys;
+  late final List<GlobalKey> _cardKeys;
+  late final List<GlobalKey> _cardHeaderKeys;
+  List<_RailNode> _railNodes = const [];
+  bool _measureScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _items = _buildItems(widget.workout);
+    _railAnchorKeys = List.generate(_items.length, (_) => GlobalKey());
+    _cardKeys = List.generate(_items.length, (_) => GlobalKey());
+    _cardHeaderKeys = List.generate(_items.length, (_) => GlobalKey());
     _activeIndex = _items.isEmpty ? null : 0;
+    _scrollController.addListener(_scheduleRailMeasurement);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
@@ -37,12 +48,97 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         }
       });
     });
+    _scheduleRailMeasurement();
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _scrollController.removeListener(_scheduleRailMeasurement);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scheduleRailMeasurement() {
+    if (_measureScheduled || !mounted) return;
+    _measureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureScheduled = false;
+      _measureRailGeometry();
+    });
+  }
+
+  Color _railColorForIndex(int index) {
+    final item = _items[index];
+    final isActive = index == _activeIndex;
+    if (isActive) return const Color(0xFF63C59A);
+    if (item.done) return const Color(0xFF4FAE84);
+    return const Color(0xFF6E757A);
+  }
+
+  void _measureRailGeometry() {
+    if (!mounted) return;
+    final layerContext = _railLayerKey.currentContext;
+    if (layerContext == null) return;
+    final layerBox = layerContext.findRenderObject();
+    if (layerBox is! RenderBox) return;
+
+    final measured = <_RailNode>[];
+    for (int i = 0; i < _items.length; i++) {
+      final anchorContext = _railAnchorKeys[i].currentContext;
+      final cardContext = _cardKeys[i].currentContext;
+      final headerContext = _cardHeaderKeys[i].currentContext;
+      if (anchorContext == null || cardContext == null) continue;
+
+      final anchorBox = anchorContext.findRenderObject();
+      final cardBox = cardContext.findRenderObject();
+      final headerBox = headerContext?.findRenderObject();
+      if (anchorBox is! RenderBox || cardBox is! RenderBox) continue;
+
+      final anchorOffset = anchorBox.localToGlobal(
+        Offset.zero,
+        ancestor: layerBox,
+      );
+      final cardOffset = cardBox.localToGlobal(
+        Offset.zero,
+        ancestor: layerBox,
+      );
+      final headerOffset = headerBox is RenderBox
+          ? headerBox.localToGlobal(
+              Offset.zero,
+              ancestor: layerBox,
+            )
+          : null;
+      final headerCenterY = headerBox is RenderBox && headerOffset != null
+          ? headerOffset.dy + (headerBox.size.height / 2)
+          : null;
+
+      measured.add(
+        _RailNode(
+          x: anchorOffset.dx + (anchorBox.size.width / 2),
+          y: headerCenterY ?? (cardOffset.dy + (cardBox.size.height / 2)),
+          cardLeft: cardOffset.dx,
+          color: _railColorForIndex(i),
+          isActive: i == _activeIndex,
+        ),
+      );
+    }
+
+    if (!_sameNodes(_railNodes, measured)) {
+      setState(() => _railNodes = measured);
+    }
+  }
+
+  bool _sameNodes(List<_RailNode> a, List<_RailNode> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if ((a[i].x - b[i].x).abs() > 0.5) return false;
+      if ((a[i].y - b[i].y).abs() > 0.5) return false;
+      if ((a[i].cardLeft - b[i].cardLeft).abs() > 0.5) return false;
+      if (a[i].color != b[i].color) return false;
+      if (a[i].isActive != b[i].isActive) return false;
+    }
+    return true;
   }
 
   List<_DoingItemState> _buildItems(Workout workout) {
@@ -118,6 +214,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         _activeIndex = index;
       }
     });
+    _scheduleRailMeasurement();
   }
 
   String _fmtClock(int seconds) {
@@ -252,29 +349,43 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
               ),
             ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
-              itemCount: _items.length,
-              itemBuilder: (context, index) {
+            child: Stack(
+              key: _railLayerKey,
+              children: [
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _WorkoutBranchPainter(nodes: _railNodes),
+                    ),
+                  ),
+                ),
+                ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+                  itemCount: _items.length,
+                  itemBuilder: (context, index) {
                 final item = _items[index];
                 final isActive = index == _activeIndex;
                 final prevReps = _previousReps(index);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
+                return IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _BranchRail(
-                        isFirst: index == 0,
-                        isLast: index == _items.length - 1,
-                        isDone: item.done,
-                        isActive: isActive,
+                      SizedBox(
+                        key: _railAnchorKeys[index],
+                        width: 22,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _activeIndex = index),
-                          child: AnimatedContainer(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _activeIndex = index);
+                              _scheduleRailMeasurement();
+                            },
+                            child: AnimatedContainer(
+                            key: _cardKeys[index],
                             duration: const Duration(milliseconds: 180),
                             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                             decoration: BoxDecoration(
@@ -294,120 +405,122 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                                         : const Color(0xFF24373D),
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        item.title,
-                                        style: TextStyle(
-                                          color: item.done
-                                              ? const Color(0xFF32DA72)
-                                              : Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    if ((prevReps ?? 0) > 0)
-                                      Text(
-                                        'Prev: $prevReps',
-                                        style: const TextStyle(
-                                          color: Color(0xFF9AAAB3),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: () => _toggleDone(index),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 150),
-                                        width: 26,
-                                        height: 26,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: item.done
-                                              ? const Color(0xFF28D66D)
-                                              : Colors.transparent,
-                                          border: Border.all(
-                                            color: item.done
-                                                ? const Color(0xFF28D66D)
-                                                : const Color(0xFF2DD06F),
-                                            width: 2,
-                                          ),
-                                        ),
-                                        child: item.done
-                                            ? const Icon(Icons.check,
-                                                color: Color(0xFF042111), size: 16)
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  item.subtitle,
-                                  style: const TextStyle(
-                                    color: Color(0xFF8A9BA8),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                if (isActive) ...[
-                                  const SizedBox(height: 10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
+                                    key: _cardHeaderKeys[index],
                                     children: [
-                                      Text(
-                                        '${item.done ? 'Reps' : 'Goal'}:',
-                                        style: const TextStyle(
-                                          color: Color(0xFFD1D7DC),
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        width: 56,
-                                        height: 30,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(8),
-                                          color: const Color(0xFF152126),
-                                        ),
+                                      Expanded(
                                         child: Text(
-                                          '${item.reps}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 20,
+                                          item.title,
+                                          style: TextStyle(
+                                            color: item.done
+                                                ? const Color(0xFF32DA72)
+                                                : Colors.white,
+                                            fontSize: 15,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),
+                                      if ((prevReps ?? 0) > 0)
+                                        Text(
+                                          'Prev: $prevReps',
+                                          style: const TextStyle(
+                                            color: Color(0xFF9AAAB3),
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       const SizedBox(width: 8),
-                                      _MiniCircleButton(
-                                        label: '=',
-                                        onTap: () => setState(() {
-                                          item.reps = prevReps ?? item.goalReps;
-                                        }),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      _MiniCircleButton(
-                                        label: '+',
-                                        color: const Color(0xFF2FE26F),
-                                        onTap: () => setState(() => item.reps += 1),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      _MiniCircleButton(
-                                        label: '-',
-                                        color: const Color(0xFFE45252),
-                                        onTap: () => setState(() {
-                                          item.reps = item.reps > 0 ? item.reps - 1 : 0;
-                                        }),
+                                      GestureDetector(
+                                        onTap: () => _toggleDone(index),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 150),
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: item.done
+                                                ? const Color(0xFF28D66D)
+                                                : Colors.transparent,
+                                            border: Border.all(
+                                              color: item.done
+                                                  ? const Color(0xFF28D66D)
+                                                  : const Color(0xFF2DD06F),
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: item.done
+                                              ? const Icon(Icons.check,
+                                                  color: Color(0xFF042111), size: 16)
+                                              : null,
+                                        ),
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    item.subtitle,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A9BA8),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (isActive) ...[
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '${item.done ? 'Reps' : 'Goal'}:',
+                                          style: const TextStyle(
+                                            color: Color(0xFFD1D7DC),
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          width: 56,
+                                          height: 30,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(8),
+                                            color: const Color(0xFF152126),
+                                          ),
+                                          child: Text(
+                                            '${item.reps}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _MiniCircleButton(
+                                          label: '=',
+                                          onTap: () => setState(() {
+                                            item.reps = prevReps ?? item.goalReps;
+                                          }),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _MiniCircleButton(
+                                          label: '+',
+                                          color: const Color(0xFF2FE26F),
+                                          onTap: () => setState(() => item.reps += 1),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _MiniCircleButton(
+                                          label: '-',
+                                          color: const Color(0xFFE45252),
+                                          onTap: () => setState(() {
+                                            item.reps = item.reps > 0 ? item.reps - 1 : 0;
+                                          }),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -415,7 +528,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                     ],
                   ),
                 );
-              },
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -516,93 +631,125 @@ class _MiniCircleButton extends StatelessWidget {
   }
 }
 
-class _BranchRail extends StatelessWidget {
-  final bool isFirst;
-  final bool isLast;
-  final bool isDone;
+class _RailNode {
+  final double x;
+  final double y;
+  final double cardLeft;
+  final Color color;
   final bool isActive;
 
-  const _BranchRail({
-    required this.isFirst,
-    required this.isLast,
-    required this.isDone,
+  const _RailNode({
+    required this.x,
+    required this.y,
+    required this.cardLeft,
+    required this.color,
     required this.isActive,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final dotColor = isActive
-        ? const Color(0xFF3BFF86)
-        : (isDone ? const Color(0xFF2FE26F) : const Color(0xFF6E757A));
-    final lineColor = isDone
-        ? const Color(0xFF1FCF68)
-        : (isActive ? const Color(0xFF2A9D8F) : const Color(0xFF5D666B));
-
-    return SizedBox(
-      width: 22,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 20,
-            child: isFirst
-                ? _DashedFadeLine(color: lineColor, reverse: true)
-                : Center(child: Container(width: 2, color: lineColor)),
-          ),
-          Container(
-            width: isActive ? 12 : 10,
-            height: isActive ? 12 : 10,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: dotColor.withAlpha(150),
-                        blurRadius: 8,
-                      ),
-                    ]
-                  : null,
-            ),
-          ),
-          SizedBox(
-            height: 52,
-            child: isLast
-                ? _DashedFadeLine(color: lineColor, reverse: false)
-                : Center(child: Container(width: 2, color: lineColor)),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _DashedFadeLine extends StatelessWidget {
-  final Color color;
-  final bool reverse;
+class _WorkoutBranchPainter extends CustomPainter {
+  final List<_RailNode> nodes;
 
-  const _DashedFadeLine({
-    required this.color,
-    required this.reverse,
-  });
+  const _WorkoutBranchPainter({required this.nodes});
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final segmentCount = 5;
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(segmentCount, (i) {
-            final t = reverse ? (segmentCount - i) / segmentCount : (i + 1) / segmentCount;
-            return Container(
-              width: 2,
-              height: constraints.maxHeight / (segmentCount * 1.7),
-              color: color.withAlpha((255 * t).round()),
-            );
-          }),
-        );
-      },
+  void paint(Canvas canvas, Size size) {
+    if (nodes.isEmpty) return;
+    const nodeRadius = 4.0;
+
+    final sorted = [...nodes]..sort((a, b) => a.y.compareTo(b.y));
+
+    for (int i = 0; i < sorted.length - 1; i++) {
+      final a = sorted[i];
+      final b = sorted[i + 1];
+      final p = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..shader = LinearGradient(
+          colors: [a.color.withAlpha(220), b.color.withAlpha(220)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(Rect.fromLTRB(a.x - 1, a.y, a.x + 1, b.y));
+      canvas.drawLine(Offset(a.x, a.y), Offset(a.x, b.y), p);
+    }
+
+    _drawDashedFadeVertical(
+      canvas,
+      x: sorted.first.x,
+      startY: 8,
+      endY: sorted.first.y,
+      color: sorted.first.color,
+      fadeOutAtStart: true,
     );
+    _drawDashedFadeVertical(
+      canvas,
+      x: sorted.last.x,
+      startY: sorted.last.y,
+      endY: size.height - 8,
+      color: sorted.last.color,
+      fadeOutAtStart: false,
+    );
+
+    for (final node in sorted) {
+      final connectorEnd = node.cardLeft.clamp(node.x, size.width);
+      final armPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round
+        ..color = node.color.withAlpha(220);
+      canvas.drawLine(Offset(node.x, node.y), Offset(connectorEnd, node.y), armPaint);
+
+      final tipPaint = Paint()..color = node.color.withAlpha(230);
+      canvas.drawCircle(Offset(connectorEnd, node.y), nodeRadius, tipPaint);
+
+      if (node.isActive) {
+        final glowPaint = Paint()..color = node.color.withAlpha(90);
+        canvas.drawCircle(Offset(node.x, node.y), 8, glowPaint);
+      }
+
+      final nodePaint = Paint()..color = node.color;
+      canvas.drawCircle(Offset(node.x, node.y), nodeRadius, nodePaint);
+    }
+  }
+
+  void _drawDashedFadeVertical(
+    Canvas canvas, {
+    required double x,
+    required double startY,
+    required double endY,
+    required Color color,
+    required bool fadeOutAtStart,
+  }) {
+    if (endY <= startY + 2) return;
+    final span = endY - startY;
+    const dash = 7.0;
+    const gap = 5.0;
+    double y = startY;
+
+    while (y < endY) {
+      final next = (y + dash).clamp(startY, endY);
+      final mid = (y + next) / 2;
+      final t = ((mid - startY) / span).clamp(0.0, 1.0);
+      final alphaFactor = fadeOutAtStart ? t : (1 - t);
+      final p = Paint()
+        ..strokeWidth = 2
+        ..color = color.withAlpha((210 * alphaFactor).round());
+      canvas.drawLine(Offset(x, y), Offset(x, next), p);
+      y = next + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorkoutBranchPainter oldDelegate) {
+    if (oldDelegate.nodes.length != nodes.length) return true;
+    for (int i = 0; i < nodes.length; i++) {
+      if ((oldDelegate.nodes[i].x - nodes[i].x).abs() > 0.1) return true;
+      if ((oldDelegate.nodes[i].y - nodes[i].y).abs() > 0.1) return true;
+      if ((oldDelegate.nodes[i].cardLeft - nodes[i].cardLeft).abs() > 0.1) return true;
+      if (oldDelegate.nodes[i].color != nodes[i].color) return true;
+      if (oldDelegate.nodes[i].isActive != nodes[i].isActive) return true;
+    }
+    return false;
   }
 }
 
