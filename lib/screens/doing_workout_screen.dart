@@ -391,106 +391,235 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     if (item.kind != _DoingItemKind.exercise) return;
 
     final initialValue = item.reps ?? item.goalReps ?? 0;
-    final controller = TextEditingController(
-      text: initialValue > 0 ? initialValue.toString() : '',
-    );
+    final quickValues = List<int>.generate(13, (i) => i);
+    final quickScrollController = ScrollController();
+    var selectedValue = initialValue < 0 ? 0 : initialValue;
+    var didAutoScroll = false;
 
-    final result = await showDialog<int>(
+    final result = await showModalBottomSheet<int>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setLocalState) {
-            int currentValue() => int.tryParse(controller.text.trim()) ?? 0;
-
-            void setValue(int value) {
-              final normalized = value < 0 ? 0 : value;
-              controller.text = normalized == 0 ? '' : normalized.toString();
-              controller.selection = TextSelection.fromPosition(
-                TextPosition(offset: controller.text.length),
-              );
-              setLocalState(() {});
+            if (!didAutoScroll &&
+                prevReps != null &&
+                prevReps >= 0 &&
+                prevReps <= quickValues.last) {
+              didAutoScroll = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!quickScrollController.hasClients) return;
+                const chipWidth = 30.0;
+                const chipGap = 6.0;
+                final viewport = quickScrollController.position.viewportDimension;
+                final targetCenter = prevReps * (chipWidth + chipGap) + (chipWidth / 2);
+                final targetOffset = (targetCenter - (viewport / 2)).clamp(
+                  0.0,
+                  quickScrollController.position.maxScrollExtent,
+                );
+                quickScrollController.animateTo(
+                  targetOffset,
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                );
+              });
             }
 
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1A2A2F),
-              title: Text(
-                item.done ? 'Edit Reps' : 'Edit Goal',
-                style: const TextStyle(color: Colors.white),
-              ),
-              content: SizedBox(
-                width: 320,
+              final quickLeftOpacity = quickScrollController.hasClients
+                ? (quickScrollController.position.pixels / 10.0).clamp(0.0, 1.0)
+                : 0.0;
+              final quickRightOpacity = quickScrollController.hasClients
+                ? ((quickScrollController.position.maxScrollExtent -
+                      quickScrollController.position.pixels) /
+                    10.0)
+                  .clamp(0.0, 1.0)
+                : 0.0;
+
+            return SafeArea(
+              child: Container(
+                margin: EdgeInsets.only(
+                  left: 14,
+                  right: 14,
+                  bottom: MediaQuery.of(dialogContext).viewInsets.bottom + 14,
+                ),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A2A2F),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF24373D)),
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Enter value',
-                        hintStyle: const TextStyle(color: Color(0xFF8A9BA8)),
-                        filled: true,
-                        fillColor: const Color(0xFF112026),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                    Text(
+                      item.done ? 'Edit Reps' : 'Edit Goal',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: prevReps == null ? null : () => setValue(prevReps),
-                            child: const Text('Same as Prev'),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Quick Select',
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(180),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 32,
+                      child: Stack(
+                        children: [
+                          NotificationListener<ScrollNotification>(
+                            onNotification: (_) {
+                              setLocalState(() {});
+                              return false;
+                            },
+                            child: ListView.separated(
+                              controller: quickScrollController,
+                              scrollDirection: Axis.horizontal,
+                              itemCount: quickValues.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 6),
+                              itemBuilder: (context, i) {
+                                final v = quickValues[i];
+                                final isSelected = v == selectedValue;
+                                return GestureDetector(
+                                  onTap: () => setLocalState(() => selectedValue = v),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    width: 30,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: isSelected
+                                          ? const Color(0xFF2A6B52)
+                                          : const Color(0xFF112026),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? const Color(0xFF59B38A)
+                                            : const Color(0xFF22343B),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '$v',
+                                      style: TextStyle(
+                                        color: Colors.white.withAlpha(isSelected ? 255 : 210),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: IgnorePointer(
+                              child: Opacity(
+                                opacity: quickLeftOpacity,
+                                child: Container(
+                                  width: 10,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        Color(0xFF1A2A2F),
+                                        Color(0x001A2A2F),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            child: IgnorePointer(
+                              child: Opacity(
+                                opacity: quickRightOpacity,
+                                child: Container(
+                                  width: 10,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerRight,
+                                      end: Alignment.centerLeft,
+                                      colors: [
+                                        Color(0xFF1A2A2F),
+                                        Color(0x001A2A2F),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.keyboard_arrow_up, color: Color(0xFF59B38A)),
+                          onPressed: () {
+                            setLocalState(() => selectedValue += 1);
+                          },
+                          visualDensity: VisualDensity.compact,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    Text(
+                      selectedValue.toString().padLeft(2, '0'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setValue(currentValue() - 1),
-                            child: const Text('Decrease'),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setValue(currentValue() + 1),
-                            child: const Text('Increase'),
-                          ),
+                        IconButton(
+                          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF59B38A)),
+                          onPressed: selectedValue > 0
+                              ? () => setLocalState(() => selectedValue -= 1)
+                              : null,
+                          visualDensity: VisualDensity.compact,
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(selectedValue),
+                        child: const Text('Confirm'),
+                      ),
                     ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(null),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final parsed = int.tryParse(controller.text.trim()) ?? 0;
-                    Navigator.of(dialogContext).pop(parsed < 0 ? 0 : parsed);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
             );
           },
         );
       },
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.dispose();
-    });
+    quickScrollController.dispose();
 
     if (!mounted || result == null) return;
 
