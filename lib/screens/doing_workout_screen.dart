@@ -21,6 +21,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
   Timer? _ticker;
   int _elapsedSeconds = 0;
   int _restSecondsRemaining = 0;
+  int? _restingItemIndex;
   int? _activeIndex;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _railLayerKey = GlobalKey();
@@ -45,6 +46,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         _elapsedSeconds += 1;
         if (_restSecondsRemaining > 0) {
           _restSecondsRemaining -= 1;
+          if (_restSecondsRemaining == 0) {
+            _restingItemIndex = null;
+          }
         }
       });
     });
@@ -155,17 +159,35 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     }
 
     for (final e in workout.exercises) {
-      final goal = e.sets.isNotEmpty ? (e.sets.first.reps ?? 8) : 8;
-      final setCount = e.sets.length;
-      out.add(_DoingItemState(
-        title: e.exercise.name,
-        subtitle: '$setCount set${setCount == 1 ? '' : 's'}',
-        kind: _DoingItemKind.exercise,
-        goalReps: goal,
-        reps: goal,
-        restSeconds: e.restAfterExerciseSeconds ??
-            (e.sets.isNotEmpty ? e.sets.last.restSeconds : 90),
-      ));
+      if (e.sets.isEmpty) {
+        out.add(_DoingItemState(
+          title: '${e.exercise.name} Set 1',
+          subtitle: 'Set 1',
+          kind: _DoingItemKind.exercise,
+          goalReps: 8,
+          reps: 8,
+          restSeconds: e.restAfterExerciseSeconds ?? 90,
+        ));
+        continue;
+      }
+
+      for (int setIndex = 0; setIndex < e.sets.length; setIndex++) {
+        final set = e.sets[setIndex];
+        final isLastSet = setIndex == e.sets.length - 1;
+        final setRest = isLastSet
+            ? (e.restAfterExerciseSeconds ?? set.restSeconds)
+            : set.restSeconds;
+        final reps = set.reps ?? 8;
+
+        out.add(_DoingItemState(
+          title: '${e.exercise.name} Set ${setIndex + 1}',
+          subtitle: 'Set ${setIndex + 1}',
+          kind: _DoingItemKind.exercise,
+          goalReps: reps,
+          reps: reps,
+          restSeconds: setRest,
+        ));
+      }
     }
 
     for (final c in workout.cooldowns) {
@@ -207,10 +229,14 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       if (item.done) {
         if (item.reps <= 0) item.reps = item.goalReps;
         _restSecondsRemaining = item.restSeconds;
+        _restingItemIndex = item.restSeconds > 0 ? index : null;
         final next = _items.indexWhere((it) => !it.done, index + 1);
         _activeIndex = next == -1 ? index : next;
       } else {
         _restSecondsRemaining = 0;
+        if (_restingItemIndex == index) {
+          _restingItemIndex = null;
+        }
         _activeIndex = index;
       }
     });
@@ -319,35 +345,6 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
               ),
             ),
           ),
-          if (_restSecondsRemaining > 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const Icon(Icons.timelapse, color: Color(0xFF2FE26F), size: 16),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Resting:',
-                    style: TextStyle(
-                      color: Color(0xFF2FE26F),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _fmtClock(_restSecondsRemaining),
-                    style: const TextStyle(
-                      color: Color(0xFFD8DEE4),
-                      fontSize: 38,
-                      height: 0.9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           Expanded(
             child: Stack(
               key: _railLayerKey,
@@ -367,19 +364,22 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                 final item = _items[index];
                 final isActive = index == _activeIndex;
                 final prevReps = _previousReps(index);
-                return IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        key: _railAnchorKeys[index],
-                        width: 22,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: GestureDetector(
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            key: _railAnchorKeys[index],
+                            width: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: GestureDetector(
                             onTap: () {
                               setState(() => _activeIndex = index);
                               _scheduleRailMeasurement();
@@ -527,6 +527,36 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
                       ),
                     ],
                   ),
+                    ),
+                    if (_restingItemIndex == index && _restSecondsRemaining > 0)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(30, 0, 0, 10),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.timelapse, color: Color(0xFF63C59A), size: 14),
+                            const SizedBox(width: 6),
+                            const Text(
+                              'Resting:',
+                              style: TextStyle(
+                                color: Color(0xFF63C59A),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _fmtClock(_restSecondsRemaining),
+                              style: const TextStyle(
+                                color: Color(0xFFD8DEE4),
+                                fontSize: 34,
+                                height: 0.9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 );
                   },
                 ),
