@@ -394,7 +394,30 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                 ),
                 if (_warmups.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  ..._warmups.map((w) => _TagChip(label: w.name, color: const Color(0xFFFFB74D))),
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: _warmups.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
+                        final moved = _warmups.removeAt(oldIndex);
+                        _warmups.insert(newIndex, moved);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final item = _warmups[index];
+                      return _ReorderableTagRow(
+                        key: ValueKey('warmup_${item.id}_${item.name}_$index'),
+                        label: item.name,
+                        color: const Color(0xFFFFB74D),
+                        index: index,
+                      );
+                    },
+                  ),
                 ],
               ],
             ),
@@ -477,7 +500,30 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                 ),
                 if (_cooldowns.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  ..._cooldowns.map((c) => _TagChip(label: c.name, color: const Color(0xFF4FC3F7))),
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    itemCount: _cooldowns.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setState(() {
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
+                        final moved = _cooldowns.removeAt(oldIndex);
+                        _cooldowns.insert(newIndex, moved);
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      final item = _cooldowns[index];
+                      return _ReorderableTagRow(
+                        key: ValueKey('cooldown_${item.id}_${item.name}_$index'),
+                        label: item.name,
+                        color: const Color(0xFF4FC3F7),
+                        index: index,
+                      );
+                    },
+                  ),
                 ],
               ],
             ),
@@ -2225,6 +2271,38 @@ class _TagChip extends StatelessWidget {
               decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(color: _subtle, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReorderableTagRow extends StatelessWidget {
+  final String label;
+  final Color color;
+  final int index;
+
+  const _ReorderableTagRow({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: _TagChip(label: label, color: color)),
+          ReorderableDragStartListener(
+            index: index,
+            child: const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Icon(Icons.drag_handle, color: _dimmer, size: 16),
+            ),
+          ),
         ],
       ),
     );
