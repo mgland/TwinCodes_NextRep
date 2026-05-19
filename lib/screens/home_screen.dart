@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/workout_storage.dart';
 import '../data/schedule_storage.dart';
 import '../models/schedule.dart';
+import '../models/workout.dart';
 import 'doing_workout_screen.dart';
 import 'workouts_hub_screen.dart';
 import 'schedule_workout_screen.dart';
@@ -171,6 +172,56 @@ class _HomeTabState extends State<_HomeTab> {
       ),
     );
     if (!mounted) return;
+    _loadSchedules();
+  }
+
+  Workout? _findWorkoutForSchedule(WorkoutSchedule schedule) {
+    final allWorkouts = WorkoutStorage.instance.getAllWorkouts();
+
+    if (schedule.workoutId.trim().isNotEmpty) {
+      for (final workout in allWorkouts) {
+        if (workout.storageKey?.toString() == schedule.workoutId) {
+          return workout;
+        }
+      }
+    }
+
+    for (final workout in allWorkouts) {
+      if (workout.name == schedule.workoutName) {
+        return workout;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _startScheduledWorkout(WorkoutSchedule schedule) async {
+    final workout = _findWorkoutForSchedule(schedule);
+    if (workout == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Workout not found. Please re-add it to your schedule.'),
+        ),
+      );
+      return;
+    }
+
+    // Starting from schedule should replace any in-progress workout session.
+    await WorkoutStorage.instance.clearActiveWorkoutSession();
+    if (!mounted) return;
+    setState(() {
+      _activeSession = null;
+    });
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DoingWorkoutScreen(workout: workout),
+      ),
+    );
+
+    if (!mounted) return;
+    _loadActiveSession();
     _loadSchedules();
   }
 
@@ -400,6 +451,25 @@ class _HomeTabState extends State<_HomeTab> {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _startScheduledWorkout(schedule),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A9D8F).withAlpha(44),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Start',
+                                style: TextStyle(
+                                  color: Color(0xFF2A9D8F),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -454,6 +524,25 @@ class _HomeTabState extends State<_HomeTab> {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _startScheduledWorkout(schedule),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A9D8F).withAlpha(44),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'Start',
+                                style: TextStyle(
+                                  color: Color(0xFF2A9D8F),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                         ],
