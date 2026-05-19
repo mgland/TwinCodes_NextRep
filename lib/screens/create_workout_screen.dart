@@ -765,31 +765,31 @@ class _SetsTable extends StatelessWidget {
     switch (category) {
       case WorkoutCategory.repBased:
         cells.addAll([
-          const Expanded(child: Text('Reps', style: style, textAlign: TextAlign.center)),
+          _headerCell('Reps', style, icon: Icons.repeat_rounded),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Weight (kg)', style: style, textAlign: TextAlign.center)),
+          _headerCell('Weight (kg)', style, icon: Icons.fitness_center_rounded),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Rest', style: style, textAlign: TextAlign.center)),
+          _headerCell('Rest', style, icon: Icons.timer_outlined),
         ]);
         break;
       case WorkoutCategory.timeBased:
         cells.addAll([
           const Expanded(child: Text('Duration', style: style, textAlign: TextAlign.center)),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Weight (kg)', style: style, textAlign: TextAlign.center)),
+          _headerCell('Weight (kg)', style, icon: Icons.fitness_center_rounded),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Rest', style: style, textAlign: TextAlign.center)),
+          _headerCell('Rest', style, icon: Icons.timer_outlined),
         ]);
         break;
       case WorkoutCategory.tut:
         cells.addAll([
-          const Expanded(child: Text('Reps', style: style, textAlign: TextAlign.center)),
+          _headerCell('Reps', style, icon: Icons.repeat_rounded),
           const SizedBox(width: 4),
           const Expanded(child: Text('Tempo', style: style, textAlign: TextAlign.center)),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Wt (kg)', style: style, textAlign: TextAlign.center)),
+          _headerCell('Wt (kg)', style, icon: Icons.fitness_center_rounded),
           const SizedBox(width: 4),
-          const Expanded(child: Text('Rest', style: style, textAlign: TextAlign.center)),
+          _headerCell('Rest', style, icon: Icons.timer_outlined),
         ]);
         break;
       case WorkoutCategory.distanceCalorieRpe:
@@ -806,6 +806,24 @@ class _SetsTable extends StatelessWidget {
     }
     cells.add(const SizedBox(width: 28)); // delete icon placeholder
     return cells;
+  }
+
+  Widget _headerCell(String label, TextStyle style, {IconData? icon}) {
+    if (icon == null) {
+      return Expanded(child: Text(label, style: style, textAlign: TextAlign.center));
+    }
+    return Expanded(
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: _subtle),
+            const SizedBox(width: 3),
+            Text(label, style: style),
+          ],
+        ),
+      ),
+    );
   }
 }
 
