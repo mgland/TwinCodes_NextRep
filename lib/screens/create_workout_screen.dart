@@ -37,6 +37,27 @@ String _fmtTimeInputSeconds(int s) {
   return _fmtSeconds(s);
 }
 
+IconData _muscleIcon(MuscleGroup muscle) {
+  switch (muscle) {
+    case MuscleGroup.chest:
+    case MuscleGroup.shoulders:
+    case MuscleGroup.triceps:
+      return Icons.fitness_center_rounded;
+    case MuscleGroup.back:
+    case MuscleGroup.biceps:
+    case MuscleGroup.forearms:
+      return Icons.sports_gymnastics_rounded;
+    case MuscleGroup.legs:
+    case MuscleGroup.glutes:
+    case MuscleGroup.calves:
+      return Icons.directions_run_rounded;
+    case MuscleGroup.core:
+      return Icons.radio_button_checked_rounded;
+    case MuscleGroup.fullBody:
+      return Icons.accessibility_new_rounded;
+  }
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 class CreateWorkoutScreen extends StatefulWidget {
@@ -135,6 +156,7 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
           .toList(),
       note: entry.note,
       exerciseDurationSeconds: entry.exerciseDurationSeconds,
+      restAfterExerciseSeconds: entry.restAfterExerciseSeconds,
     );
   }
 
@@ -185,7 +207,18 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
       storageKey: widget.editingStorageKey,
       name: _nameController.text.trim().isEmpty ? 'My Workout' : _nameController.text.trim(),
       category: cat,
-      exercises: _entries,
+      exercises: _entries
+          .map(
+            (entry) => WorkoutExerciseEntry(
+              exercise: entry.exercise,
+              equipment: entry.equipment,
+              sets: entry.sets,
+              note: entry.note,
+              exerciseDurationSeconds: entry.exerciseDurationSeconds,
+              restAfterExerciseSeconds: null,
+            ),
+          )
+          .toList(),
       warmups: _warmups,
       cooldowns: _cooldowns,
       note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
@@ -410,7 +443,6 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
                         entry: entry,
                         category: cat,
                         defaultRest: _defaultRest,
-                        isLast: index == _entries.length - 1,
                         onRemove: () => setState(() => _entries.removeAt(index)),
                         onPickEquipment: () => _pickEquipment(entry),
                         onChanged: () => setState(() {}),
@@ -476,7 +508,6 @@ class _ExerciseCard extends StatelessWidget {
   final WorkoutExerciseEntry entry;
   final WorkoutCategory category;
   final int defaultRest;
-  final bool isLast;
   final VoidCallback onRemove;
   final VoidCallback onPickEquipment;
   final VoidCallback onChanged;
@@ -487,7 +518,6 @@ class _ExerciseCard extends StatelessWidget {
     required this.entry,
     required this.category,
     required this.defaultRest,
-    required this.isLast,
     required this.onRemove,
     required this.onPickEquipment,
     required this.onChanged,
@@ -529,9 +559,21 @@ class _ExerciseCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        entry.exercise.name,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                      Row(
+                        children: [
+                          Icon(
+                            _muscleIcon(entry.exercise.primaryMuscle),
+                            color: _accent,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              entry.exercise.name,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                            ),
+                          ),
+                        ],
                       ),
                       Text(
                         entry.exercise.primaryMuscle.displayName,
@@ -658,72 +700,6 @@ class _ExerciseCard extends StatelessWidget {
             ),
           ),
 
-          // ── Rest after exercise ─────────────────────────────────────────
-          if (!isLast)
-            Container(
-              decoration: BoxDecoration(
-                color: _surface,
-                borderRadius: entry.restAfterExerciseSeconds == null
-                    ? const BorderRadius.only(
-                        topRight: Radius.circular(14),
-                        bottomLeft: Radius.circular(14),
-                      )
-                    : const BorderRadius.only(
-                        bottomLeft: Radius.circular(14),
-                        bottomRight: Radius.circular(14),
-                      ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: entry.restAfterExerciseSeconds == null
-                  ? GestureDetector(
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.transparent,
-                        isScrollControlled: true,
-                        builder: (_) => _DurationPickerSheet(
-                          initial: 90,
-                          title: 'Rest Between Exercises',
-                          isDefaultInitial: true,
-                          onPicked: (v) {
-                            entry.restAfterExerciseSeconds = v;
-                            onChanged();
-                          },
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.add, color: _accent, size: 14),
-                          SizedBox(width: 4),
-                          Text('Add rest', style: TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    )
-                  : Row(
-                      children: [
-                        const Icon(Icons.timer, color: _accent, size: 14),
-                        const SizedBox(width: 6),
-                        const Text('Rest:', style: TextStyle(color: _subtle, fontSize: 12)),
-                        const SizedBox(width: 6),
-                        _RestPicker(
-                          value: entry.restAfterExerciseSeconds!,
-                          label: 'Rest Between Exercises',
-                          onChanged: (v) {
-                            entry.restAfterExerciseSeconds = v;
-                            onChanged();
-                          },
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () {
-                            entry.restAfterExerciseSeconds = null;
-                            onChanged();
-                          },
-                          child: const Icon(Icons.close, color: _dimmer, size: 15),
-                        ),
-                      ],
-                    ),
-            ),
         ],
       ),
     );
@@ -764,6 +740,7 @@ class _SetsTable extends StatelessWidget {
               setIndex: e.key,
               set_: e.value,
               category: category,
+              isLastSet: e.key == entry.sets.length - 1,
               onRemove: entry.sets.length > 1
                   ? () {
                       entry.sets.removeAt(e.key);
@@ -838,6 +815,7 @@ class _SetRow extends StatefulWidget {
   final int setIndex;
   final WorkoutSet set_;
   final WorkoutCategory category;
+  final bool isLastSet;
   final VoidCallback? onRemove;
   final VoidCallback onChanged;
 
@@ -845,6 +823,7 @@ class _SetRow extends StatefulWidget {
     required this.setIndex,
     required this.set_,
     required this.category,
+    required this.isLastSet,
     required this.onRemove,
     required this.onChanged,
   });
@@ -997,6 +976,7 @@ class _SetRowState extends State<_SetRow> {
 
   Widget _restCell() => _TappableCell(
         label: _fmtTimeInputSeconds(widget.set_.restSeconds),
+      backgroundColor: widget.isLastSet ? const Color.fromARGB(255, 12, 21, 26) : _surface,
         onTap: () => _pickDuration(
           initial: widget.set_.restSeconds,
           title: 'Rest After Set',
@@ -1132,9 +1112,14 @@ class _NumericCell extends StatelessWidget {
 
 class _TappableCell extends StatelessWidget {
   final String label;
+  final Color backgroundColor;
   final VoidCallback onTap;
 
-  const _TappableCell({required this.label, required this.onTap});
+  const _TappableCell({
+    required this.label,
+    this.backgroundColor = _surface,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1143,7 +1128,7 @@ class _TappableCell extends StatelessWidget {
       child: Container(
         height: 32,
         decoration: BoxDecoration(
-          color: _surface,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -1160,13 +1145,11 @@ class _DurationPickerSheet extends StatefulWidget {
   final int initial;
   final String title;
   final ValueChanged<int> onPicked;
-  final bool isDefaultInitial;
 
   const _DurationPickerSheet({
     required this.initial,
     required this.title,
     required this.onPicked,
-    this.isDefaultInitial = false,
   });
 
   @override
@@ -1177,7 +1160,6 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   late int _minutes;
   late int _seconds;
   List<int> _presets = [];
-  int? _lastUsed;
   final _activeChipKey = GlobalKey();
 
   @override
@@ -1186,7 +1168,6 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
     _minutes = widget.initial ~/ 60;
     _seconds = widget.initial % 60;
     _presets = RestPresetStorage.instance.getPresets();
-    _lastUsed = RestPresetStorage.instance.getLastUsed();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToActive());
   }
 
@@ -1230,7 +1211,7 @@ class _DurationPickerSheetState extends State<_DurationPickerSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final alreadySaved = _presets.contains(_currentSeconds);
-    final activeChip = widget.isDefaultInitial ? _lastUsed : _currentSeconds;
+    final activeChip = _currentSeconds;
     return Container(
         decoration: const BoxDecoration(
           color: _surface,
