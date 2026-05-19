@@ -225,6 +225,56 @@ class _HomeTabState extends State<_HomeTab> {
     _loadSchedules();
   }
 
+  Future<void> _cancelActiveWorkout() async {
+    if (_activeSession == null) return;
+
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF152126),
+          title: const Text(
+            'Cancel workout?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Your current workout progress will be discarded.',
+            style: TextStyle(color: Color(0xFF8A9BA8)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text(
+                'Keep',
+                style: TextStyle(color: Color(0xFF8A9BA8)),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text(
+                'Cancel Workout',
+                style: TextStyle(color: Color(0xFFE76F51), fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldCancel != true) return;
+
+    await WorkoutStorage.instance.clearActiveWorkoutSession();
+    if (!mounted) return;
+
+    setState(() {
+      _activeSession = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Workout cancelled.')),
+    );
+  }
+
   String _fmtClock(int seconds) {
     final h = seconds ~/ 3600;
     final m = (seconds % 3600) ~/ 60;
@@ -336,6 +386,29 @@ class _HomeTabState extends State<_HomeTab> {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: _cancelActiveWorkout,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE76F51).withAlpha(40),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE76F51).withAlpha(90)),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFFFFB4A6),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
