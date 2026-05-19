@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../data/workout_storage.dart';
+import 'doing_workout_screen.dart';
 import 'workouts_hub_screen.dart';
 
 enum _NavTab {
@@ -95,11 +97,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _HomeTab extends StatelessWidget {
+class _HomeTab extends StatefulWidget {
   const _HomeTab();
 
   @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  ActiveWorkoutSession? _activeSession;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActiveSession();
+  }
+
+  void _loadActiveSession() {
+    if (!mounted) return;
+    setState(() {
+      _activeSession = WorkoutStorage.instance.getActiveWorkoutSession();
+    });
+  }
+
+  Future<void> _resumeWorkout() async {
+    final session = _activeSession;
+    if (session == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DoingWorkoutScreen(
+          workout: session.workout,
+          initialSession: session,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    _loadActiveSession();
+  }
+
+  String _fmtClock(int seconds) {
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) {
+      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    }
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  @override
   Widget build(BuildContext context) {
+    final activeSession = _activeSession;
+    final completedCount = activeSession?.items.where((item) => item.done).length ?? 0;
+    final totalCount = activeSession?.items.length ?? 0;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 130),
       children: [
@@ -112,6 +164,95 @@ class _HomeTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        if (activeSession != null) ...[
+          GestureDetector(
+            onTap: _resumeWorkout,
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF19322D),
+                    Color(0xFF152A25),
+                    Color(0xFF0F211D),
+                  ],
+                ),
+                border: Border.all(color: const Color(0xFF2A9D8F).withAlpha(140)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A9D8F).withAlpha(44),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Workout WIP',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF9CD0C7),
+                        size: 22,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    activeSession.workout.name,
+                    style: const TextStyle(
+                      color: Color(0xFFD8ECE7),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$completedCount / $totalCount items complete  •  ${_fmtClock(activeSession.elapsedSeconds)} elapsed',
+                    style: const TextStyle(
+                      color: Color(0xFF9CC1B9),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (activeSession.restSecondsRemaining > 0) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Rest timer: ${_fmtClock(activeSession.restSecondsRemaining)}',
+                      style: const TextStyle(
+                        color: Color(0xFFB5E5D8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(

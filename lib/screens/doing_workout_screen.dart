@@ -10,10 +10,12 @@ import 'home_screen.dart';
 
 class DoingWorkoutScreen extends StatefulWidget {
   final Workout workout;
+  final ActiveWorkoutSession? initialSession;
 
   const DoingWorkoutScreen({
     super.key,
     required this.workout,
+    this.initialSession,
   });
 
   @override
@@ -57,10 +59,12 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     _cardKeys = List.generate(_items.length, (_) => GlobalKey());
     _cardHeaderKeys = List.generate(_items.length, (_) => GlobalKey());
     _activeIndex = _items.isEmpty ? null : 0;
+    _restoreInitialSession();
     _scrollController.addListener(_scheduleRailMeasurement);
     _scrollController.addListener(_updateScrollOffset);
     _topChipScrollController.addListener(_updateTopChipScrollMetrics);
     _startTicker();
+    unawaited(_persistActiveSession());
     _scheduleRailMeasurement();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateTopChipScrollMetrics();
@@ -92,6 +96,73 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         }
       });
     });
+  }
+
+  void _restoreInitialSession() {
+    final session = widget.initialSession;
+    if (session == null) return;
+
+    final savedItems = session.items;
+    if (savedItems.length == _items.length) {
+      for (int i = 0; i < _items.length; i++) {
+        _items[i].goalReps = savedItems[i].goalReps;
+        _items[i].reps = savedItems[i].reps;
+        _items[i].done = savedItems[i].done;
+      }
+    }
+
+    _elapsedSeconds = session.elapsedSeconds;
+    _restSecondsRemaining = session.restSecondsRemaining;
+    _restingItemIndex = _isValidItemIndex(session.restingItemIndex)
+        ? session.restingItemIndex
+        : null;
+    _activeIndex = _isValidItemIndex(session.activeIndex)
+        ? session.activeIndex
+        : _firstIncompleteItemIndex();
+  }
+
+  int? _firstIncompleteItemIndex() {
+    final next = _items.indexWhere((item) => !item.done);
+    if (next == -1) return _items.isEmpty ? null : 0;
+    return next;
+  }
+
+  bool _isValidItemIndex(int? index) {
+    return index != null && index >= 0 && index < _items.length;
+  }
+
+  ActiveWorkoutSession _buildActiveSession() {
+    return ActiveWorkoutSession(
+      workout: widget.workout,
+      elapsedSeconds: _elapsedSeconds,
+      restSecondsRemaining: _restSecondsRemaining,
+      restingItemIndex: _restingItemIndex,
+      activeIndex: _activeIndex,
+      updatedAt: DateTime.now(),
+      items: _items
+          .map(
+            (item) => ActiveWorkoutItemState(
+              goalReps: item.goalReps,
+              reps: item.reps,
+              done: item.done,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<void> _persistActiveSession() {
+    return WorkoutStorage.instance.saveActiveWorkoutSession(_buildActiveSession());
+  }
+
+  Future<void> _goHomeWithActiveWorkout() async {
+    _stopTicker();
+    await _persistActiveSession();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
   }
 
   void _stopTicker() {
@@ -394,6 +465,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         _activeIndex = index;
       }
     });
+    unawaited(_persistActiveSession());
     _scheduleRailMeasurement();
   }
 
@@ -640,6 +712,7 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
         item.goalReps = result;
       }
     });
+    unawaited(_persistActiveSession());
   }
 
   Future<void> _onFinishWorkoutTap() async {
@@ -778,6 +851,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       return;
     }
 
+    await WorkoutStorage.instance.clearActiveWorkoutSession();
+
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
@@ -859,21 +934,26 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       _updateTopChipScrollMetrics();
     });
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1B1E),
-      appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        await _goHomeWithActiveWorkout();
+        return false;
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFF0D1B1E),
-        title: Text(
-          widget.workout.name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0D1B1E),
+          title: Text(
+            widget.workout.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
-      ),
-      body: Column(
-        children: [
+        body: Column(
+          children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
             child: Container(
@@ -1359,7 +1439,8 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

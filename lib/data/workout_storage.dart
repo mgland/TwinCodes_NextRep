@@ -15,8 +15,11 @@ class WorkoutStorage {
   static final WorkoutStorage instance = WorkoutStorage._();
 
   static String get _boxName => '${AppConstants.hiveId}-workouts';
+  static String get _activeSessionBoxName => '${AppConstants.hiveId}-active-workout';
+  static const String _activeSessionKey = 'current';
 
   Box<dynamic>? _box;
+  Box<dynamic>? _activeSessionBox;
 
   Future<void> init() async {
     try {
@@ -30,6 +33,7 @@ class WorkoutStorage {
       Hive.init(dir.path);
     }
     _box ??= await Hive.openBox<dynamic>(_boxName);
+    _activeSessionBox ??= await Hive.openBox<dynamic>(_activeSessionBoxName);
   }
 
   Future<void> saveWorkout(Workout workout) async {
@@ -62,6 +66,28 @@ class WorkoutStorage {
     return _box!;
   }
 
+  Future<Box<dynamic>> _ensureActiveSessionBox() async {
+    if (_activeSessionBox != null) return _activeSessionBox!;
+    await init();
+    return _activeSessionBox!;
+  }
+
+  Future<void> saveActiveWorkoutSession(ActiveWorkoutSession session) async {
+    final box = await _ensureActiveSessionBox();
+    await box.put(_activeSessionKey, _activeWorkoutSessionToMap(session));
+  }
+
+  ActiveWorkoutSession? getActiveWorkoutSession() {
+    final raw = _activeSessionBox?.get(_activeSessionKey);
+    if (raw is! Map) return null;
+    return _activeWorkoutSessionFromMap(Map<String, dynamic>.from(raw));
+  }
+
+  Future<void> clearActiveWorkoutSession() async {
+    final box = await _ensureActiveSessionBox();
+    await box.delete(_activeSessionKey);
+  }
+
   Map<String, dynamic> _workoutToMap(Workout w) {
     return {
       'name': w.name,
@@ -71,6 +97,18 @@ class WorkoutStorage {
       'warmups': w.warmups.map(_warmupToMap).toList(),
       'cooldowns': w.cooldowns.map(_warmupToMap).toList(),
       'exercises': w.exercises.map(_entryToMap).toList(),
+    };
+  }
+
+  Map<String, dynamic> _activeWorkoutSessionToMap(ActiveWorkoutSession session) {
+    return {
+      'workout': _workoutToMap(session.workout),
+      'elapsedSeconds': session.elapsedSeconds,
+      'restSecondsRemaining': session.restSecondsRemaining,
+      'restingItemIndex': session.restingItemIndex,
+      'activeIndex': session.activeIndex,
+      'updatedAt': session.updatedAt.toIso8601String(),
+      'items': session.items.map(_activeWorkoutItemStateToMap).toList(),
     };
   }
 
@@ -119,6 +157,14 @@ class WorkoutStorage {
     };
   }
 
+  Map<String, dynamic> _activeWorkoutItemStateToMap(ActiveWorkoutItemState item) {
+    return {
+      'goalReps': item.goalReps,
+      'reps': item.reps,
+      'done': item.done,
+    };
+  }
+
   Workout _workoutFromMap(Map<String, dynamic> m, {int? storageKey}) {
     final categoryIndex = _asInt(m['category']) ?? 0;
     final createdAtRaw = m['createdAt'] as String?;
@@ -145,6 +191,24 @@ class WorkoutStorage {
       cooldowns: cooldowns,
       note: m['note'] as String?,
       createdAt: createdAt,
+    );
+  }
+
+  ActiveWorkoutSession _activeWorkoutSessionFromMap(Map<String, dynamic> m) {
+    final workoutMap = Map<String, dynamic>.from((m['workout'] ?? const {}) as Map);
+    final updatedAtRaw = m['updatedAt'] as String?;
+    return ActiveWorkoutSession(
+      workout: _workoutFromMap(workoutMap),
+      elapsedSeconds: _asInt(m['elapsedSeconds']) ?? 0,
+      restSecondsRemaining: _asInt(m['restSecondsRemaining']) ?? 0,
+      restingItemIndex: _asInt(m['restingItemIndex']),
+      activeIndex: _asInt(m['activeIndex']),
+      updatedAt: updatedAtRaw == null
+          ? DateTime.now()
+          : DateTime.tryParse(updatedAtRaw) ?? DateTime.now(),
+      items: _asList(m['items'])
+          .map((item) => _activeWorkoutItemStateFromMap(Map<String, dynamic>.from(item as Map)))
+          .toList(),
     );
   }
 
@@ -218,6 +282,14 @@ class WorkoutStorage {
     );
   }
 
+  ActiveWorkoutItemState _activeWorkoutItemStateFromMap(Map<String, dynamic> m) {
+    return ActiveWorkoutItemState(
+      goalReps: _asInt(m['goalReps']),
+      reps: _asInt(m['reps']),
+      done: m['done'] == true,
+    );
+  }
+
   List _asList(dynamic value) => value is List ? value : const [];
 
   int _clampIndex(int value, int length) {
@@ -240,4 +312,36 @@ class WorkoutStorage {
     if (value is String) return double.tryParse(value);
     return null;
   }
+}
+
+class ActiveWorkoutSession {
+  final Workout workout;
+  final int elapsedSeconds;
+  final int restSecondsRemaining;
+  final int? restingItemIndex;
+  final int? activeIndex;
+  final DateTime updatedAt;
+  final List<ActiveWorkoutItemState> items;
+
+  const ActiveWorkoutSession({
+    required this.workout,
+    required this.elapsedSeconds,
+    required this.restSecondsRemaining,
+    required this.restingItemIndex,
+    required this.activeIndex,
+    required this.updatedAt,
+    required this.items,
+  });
+}
+
+class ActiveWorkoutItemState {
+  final int? goalReps;
+  final int? reps;
+  final bool done;
+
+  const ActiveWorkoutItemState({
+    required this.goalReps,
+    required this.reps,
+    required this.done,
+  });
 }
