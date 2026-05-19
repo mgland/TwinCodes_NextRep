@@ -332,6 +332,22 @@ class ActiveWorkoutSession {
     required this.updatedAt,
     required this.items,
   });
+
+  ActiveWorkoutSession projectTo(DateTime now) {
+    final deltaSeconds = now.difference(updatedAt).inSeconds;
+    if (deltaSeconds <= 0) return this;
+
+    final projectedRest = restSecondsRemaining - deltaSeconds;
+    return ActiveWorkoutSession(
+      workout: workout,
+      elapsedSeconds: elapsedSeconds + deltaSeconds,
+      restSecondsRemaining: projectedRest > 0 ? projectedRest : 0,
+      restingItemIndex: projectedRest > 0 ? restingItemIndex : null,
+      activeIndex: activeIndex,
+      updatedAt: now,
+      items: items,
+    );
+  }
 }
 
 class ActiveWorkoutItemState {

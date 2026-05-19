@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/workout_storage.dart';
@@ -106,11 +108,22 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   ActiveWorkoutSession? _activeSession;
+  Timer? _ticker;
 
   @override
   void initState() {
     super.initState();
     _loadActiveSession();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _activeSession == null) return;
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
   }
 
   void _loadActiveSession() {
@@ -146,9 +159,8 @@ class _HomeTabState extends State<_HomeTab> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    final activeSession = _activeSession;
+    final activeSession = _activeSession?.projectTo(DateTime.now());
     final completedCount = activeSession?.items.where((item) => item.done).length ?? 0;
     final totalCount = activeSession?.items.length ?? 0;
 

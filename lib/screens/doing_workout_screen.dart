@@ -102,7 +102,9 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
     final session = widget.initialSession;
     if (session == null) return;
 
-    final savedItems = session.items;
+    final projectedSession = session.projectTo(DateTime.now());
+
+    final savedItems = projectedSession.items;
     if (savedItems.length == _items.length) {
       for (int i = 0; i < _items.length; i++) {
         _items[i].goalReps = savedItems[i].goalReps;
@@ -111,13 +113,13 @@ class _DoingWorkoutScreenState extends State<DoingWorkoutScreen> {
       }
     }
 
-    _elapsedSeconds = session.elapsedSeconds;
-    _restSecondsRemaining = session.restSecondsRemaining;
-    _restingItemIndex = _isValidItemIndex(session.restingItemIndex)
-        ? session.restingItemIndex
+    _elapsedSeconds = projectedSession.elapsedSeconds;
+    _restSecondsRemaining = projectedSession.restSecondsRemaining;
+    _restingItemIndex = _isValidItemIndex(projectedSession.restingItemIndex)
+        ? projectedSession.restingItemIndex
         : null;
-    _activeIndex = _isValidItemIndex(session.activeIndex)
-        ? session.activeIndex
+    _activeIndex = _isValidItemIndex(projectedSession.activeIndex)
+        ? projectedSession.activeIndex
         : _firstIncompleteItemIndex();
   }
 
