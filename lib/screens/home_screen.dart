@@ -265,44 +265,6 @@ class _HomeTabState extends State<_HomeTab> {
           ),
           const SizedBox(height: 12),
         ],
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF0F3640),
-                Color(0xFF0A2A34),
-                Color(0xFF072129),
-              ],
-            ),
-            border: Border.all(color: const Color(0xFF1B4D59).withAlpha(120)),
-          ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Buttons Removed',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Navigation now lives in the floating button group below.\nTap Workouts to view and create workouts.',
-                style: TextStyle(
-                  color: Color(0xFF9AB8C2),
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
