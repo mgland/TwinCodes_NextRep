@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/workout_storage.dart';
+import '../data/schedule_storage.dart';
+import '../models/schedule.dart';
 import 'doing_workout_screen.dart';
 import 'workouts_hub_screen.dart';
+import 'schedule_workout_screen.dart';
 
 enum _NavTab {
   home,
@@ -109,11 +112,14 @@ class _HomeTab extends StatefulWidget {
 class _HomeTabState extends State<_HomeTab> {
   ActiveWorkoutSession? _activeSession;
   Timer? _ticker;
+  List<WorkoutSchedule> _todaySchedules = [];
+  List<WorkoutSchedule> _upcomingSchedules = [];
 
   @override
   void initState() {
     super.initState();
     _loadActiveSession();
+    _loadSchedules();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _activeSession == null) return;
       setState(() {});
@@ -133,6 +139,16 @@ class _HomeTabState extends State<_HomeTab> {
     });
   }
 
+  void _loadSchedules() {
+    if (!mounted) return;
+    setState(() {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      _todaySchedules = ScheduleStorage.instance.getSchedulesForDate(today);
+      _upcomingSchedules = ScheduleStorage.instance.getUpcomingSchedules(days: 7);
+    });
+  }
+
   Future<void> _resumeWorkout() async {
     final session = _activeSession;
     if (session == null) return;
@@ -146,6 +162,16 @@ class _HomeTabState extends State<_HomeTab> {
     );
     if (!mounted) return;
     _loadActiveSession();
+  }
+
+  Future<void> _goToScheduling() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ScheduleWorkoutScreen(),
+      ),
+    );
+    if (!mounted) return;
+    _loadSchedules();
   }
 
   String _fmtClock(int seconds) {
@@ -265,8 +291,223 @@ class _HomeTabState extends State<_HomeTab> {
           ),
           const SizedBox(height: 12),
         ],
+        // ── Schedules Section ─────────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF152126),
+            border: Border.all(color: const Color(0xFF1E2E33)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A9D8F).withAlpha(44),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_today_rounded,
+                      color: Color(0xFF2A9D8F),
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Schedules',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (_todaySchedules.isEmpty && _upcomingSchedules.isEmpty) ...[
+                Text(
+                  'No scheduled workouts',
+                  style: TextStyle(
+                    color: const Color(0xFF8A9BA8).withAlpha(180),
+                    fontSize: 13,
+                  ),
+                ),
+              ] else ...[
+                if (_todaySchedules.isNotEmpty) ...[
+                  Text(
+                    "Today's Schedule",
+                    style: const TextStyle(
+                      color: Color(0xFF8A9BA8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final schedule in _todaySchedules)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: schedule.completed
+                                  ? Colors.green.withAlpha(44)
+                                  : const Color(0xFF2A9D8F).withAlpha(44),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Icon(
+                              schedule.completed
+                                  ? Icons.check_rounded
+                                  : Icons.schedule_rounded,
+                              color: schedule.completed
+                                  ? Colors.green
+                                  : const Color(0xFF2A9D8F),
+                              size: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  schedule.workoutName,
+                                  style: TextStyle(
+                                    color: schedule.completed
+                                        ? const Color(0xFF566A72)
+                                        : Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (schedule.scheduledTime != null)
+                                  Text(
+                                    schedule.scheduledTime!.format(),
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A9BA8),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_upcomingSchedules.isNotEmpty) const SizedBox(height: 12),
+                ],
+                if (_upcomingSchedules.isNotEmpty) ...[
+                  Text(
+                    'Upcoming',
+                    style: const TextStyle(
+                      color: Color(0xFF8A9BA8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final schedule in _upcomingSchedules.take(3))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF566A72).withAlpha(44),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.event_note_rounded,
+                              color: Color(0xFF566A72),
+                              size: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  schedule.workoutName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  _formatScheduleDate(schedule.scheduledDate),
+                                  style: const TextStyle(
+                                    color: Color(0xFF8A9BA8),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ],
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _goToScheduling,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A9D8F).withAlpha(44),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_rounded,
+                        color: Color(0xFF2A9D8F),
+                        size: 16,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Schedule Workout',
+                        style: TextStyle(
+                          color: Color(0xFF2A9D8F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  String _formatScheduleDate(DateTime date) {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    if (dateOnly == tomorrow) return 'Tomorrow';
+
+    final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month]}';
   }
 }
 

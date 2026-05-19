@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'data/rest_preset_storage.dart';
 import 'data/workout_storage.dart';
+import 'data/schedule_storage.dart';
 import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await WorkoutStorage.instance.init();
   await RestPresetStorage.instance.init();
+  await ScheduleStorage.instance.init();
   runApp(const NextRepApp());
 }
 
